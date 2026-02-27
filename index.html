@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agenda de Obras - Cloud</title>
+    <title>Agenda de Obras - Nuvem</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
-        /* CSS IDENTICO AO SEU INDEX.HTML ORIGINAL */
         :root {
             --sap-bg: #f5f6f7;
             --sap-card-bg: #ffffff;
@@ -26,15 +26,50 @@
             --status-pendente-text: #e65100;
         }
 
-        body { background-color: var(--sap-bg); font-family: 'Inter', sans-serif; color: var(--sap-text); }
-        .sap-card { background: var(--sap-card-bg); border-radius: 8px; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); border: 1px solid #dee2e6; margin-bottom: 20px; padding: 20px; }
-        .nav-tabs .nav-link { color: #555; border: none; font-weight: 500; padding: 12px 20px; }
-        .nav-tabs .nav-link.active { color: var(--sap-primary); border-bottom: 3px solid var(--sap-primary); background: transparent; }
-        .table thead th { background: #f8f9fa; color: #666; font-weight: 600; font-size: 0.85rem; border-bottom: 2px solid #eee; }
-        .badge-sap { padding: 6px 12px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; }
+        body { 
+            background-color: var(--sap-bg); 
+            font-family: 'Inter', sans-serif; 
+            color: var(--sap-text); 
+        }
+
+        .sap-card { 
+            background: var(--sap-card-bg); 
+            border-radius: 8px; 
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); 
+            border: 1px solid #dee2e6; 
+            margin-bottom: 20px; 
+            padding: 20px; 
+        }
+
+        .table thead th { 
+            background: #f8f9fa; 
+            color: #666; 
+            font-weight: 600; 
+            font-size: 0.85rem; 
+            border-bottom: 2px solid #eee; 
+            text-transform: uppercase;
+        }
+
+        .badge-sap { 
+            padding: 6px 12px; 
+            border-radius: 4px; 
+            font-weight: 600; 
+            font-size: 0.8rem; 
+        }
+        
         .badge-concluido { background-color: var(--status-concluido); color: var(--status-concluido-text); }
         .badge-pendente { background-color: var(--status-pendente); color: var(--status-pendente-text); }
-        .prioridade-star { color: #f59e0b; cursor: pointer; }
+        .badge-aberto { background-color: #e0f2fe; color: #0284c7; }
+
+        .prioridade-star { color: #f59e0b; }
+        
+        .historico-box {
+            background: #f8f9fa;
+            border-left: 3px solid var(--sap-primary);
+            padding: 10px;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -42,150 +77,400 @@
 <div class="container-fluid py-4">
     <div class="sap-card">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="m-0"><i class="fas fa-tasks me-2"></i>Gestão de Obras Cloud</h4>
+            <h4 class="m-0"><i class="fas fa-tasks me-2"></i>Agenda de Obras (Nuvem)</h4>
             <div class="d-flex gap-2">
-                <button class="btn btn-outline-primary btn-sm" onclick="gerarPDF()"><i class="fas fa-file-pdf"></i> Exportar</button>
-                <button class="btn btn-primary btn-sm" onclick="carregarDados()"><i class="fas fa-sync"></i> Sincronizar</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="gerarPDF()"><i class="fas fa-file-pdf"></i> Exportar</button>
+                <button class="btn btn-primary btn-sm" onclick="novaObra()"><i class="fas fa-plus"></i> Nova Tarefa</button>
             </div>
         </div>
 
-        <ul class="nav nav-tabs mb-3" id="mainTabs">
-            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-agenda">Agenda</a></li>
-            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-financeiro">Financeiro</a></li>
-        </ul>
+        <div class="row g-2 mb-3">
+            <div class="col-md-4">
+                <input type="text" id="filtroTexto" class="form-control" placeholder="Buscar tarefa ou obra..." onkeyup="filtrarTabela()">
+            </div>
+            <div class="col-md-3">
+                <select id="filtroObra" class="form-select" onchange="filtrarTabela()">
+                    <option value="">Todas as Obras</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select id="filtroStatus" class="form-select" onchange="filtrarTabela()">
+                    <option value="">Todos os Status</option>
+                    <option value="Pendente">Pendente</option>
+                    <option value="Concluído">Concluído</option>
+                </select>
+            </div>
+        </div>
 
-        <div class="tab-content">
-            <div class="tab-pane fade show active" id="tab-agenda">
-                <div class="row g-2 mb-3">
-                    <div class="col-md-4"><input type="text" id="filtroTexto" class="form-control" placeholder="Buscar tarefa ou fornecedor..." onkeyup="filtrar()"></div>
-                    <div class="col-md-3">
-                        <select id="filtroObra" class="form-select" onchange="filtrar()">
-                            <option value="">Todas as Obras</option>
-                        </select>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th width="10%">Data</th>
+                        <th width="15%">Obra</th>
+                        <th width="45%">Tarefa</th>
+                        <th width="10%">Status</th>
+                        <th width="10%">Próxima Ação</th>
+                        <th width="10%" class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="corpo-tabela">
+                    <tr><td colspan="6" class="text-center py-4 text-muted">Carregando dados da nuvem...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes da Tarefa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="m-idx">
+                <input type="hidden" id="m-id-banco">
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Data de Criação</label>
+                        <input type="date" id="m-data" class="form-control">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">Obra</label>
+                        <input type="text" id="m-obra" class="form-control" placeholder="Ex: Rio Mar">
                     </div>
                 </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Obra</th>
-                                <th>Tarefa</th>
-                                <th>Status</th>
-                                <th>Ação</th>
-                            </tr>
-                        </thead>
-                        <tbody id="corpo-tabela"></tbody>
-                    </table>
-                </div>
-            </div>
 
-            <div class="tab-pane fade" id="tab-financeiro">
-                <div id="financeiro-container"></div>
+                <div class="mb-3">
+                    <label class="form-label">Tarefa Principal</label>
+                    <input type="text" id="m-tarefa" class="form-control">
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Status</label>
+                        <select id="m-status" class="form-select">
+                            <option value="Pendente">Pendente</option>
+                            <option value="Concluído">Concluído</option>
+                            <option value="Aberto">Aberto</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end pb-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="m-prioridade">
+                            <label class="form-check-label text-danger fw-bold"><i class="fas fa-star prioridade-star"></i> Alta Prioridade</label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <h6 class="mb-3 text-secondary"><i class="fas fa-history me-2"></i>Andamento da Tarefa</h6>
+                
+                <div id="m-historico-lista" class="mb-3" style="max-height: 200px; overflow-y: auto;">
+                    </div>
+
+                <div class="card bg-light border-0 p-3">
+                    <label class="form-label fw-bold">Novo Andamento / Observação</label>
+                    <textarea id="m-historico-input" class="form-control mb-2" rows="2" placeholder="Descreva o que foi feito ou o status atual..."></textarea>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label mb-0"><small>Agendar Próxima Data de Cobrança</small></label>
+                            <input type="date" id="m-proxima-data" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarEdicao()">Salvar na Nuvem</button>
             </div>
         </div>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
+    // --- 1. CONFIGURAÇÃO SUPABASE ---
     const SUPABASE_URL = 'https://ywooulafmxwucedysuwa.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_9GaW4k4aE5yUjTSTVBYF3g_NZy4Fy7Y';
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let dadosGerais = [];
+    let dadosPlanilha = []; // Armazena os dados em memória
 
+    // --- 2. FUNÇÕES DE UTILIDADE DE DATA ---
+    function formatarDataBancoParaLocal(dataISO) {
+        if (!dataISO) return '';
+        const p = dataISO.split('-');
+        return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : dataISO;
+    }
+
+    function formatarDataLocalParaBanco(dataLocal) {
+        if (!dataLocal) return null;
+        if (dataLocal.includes('/')) {
+            const [d, m, a] = dataLocal.split('/');
+            return `${a}-${m}-${d}`;
+        }
+        return dataLocal; // já vem AAAA-MM-DD do input date
+    }
+
+    // --- 3. CARREGAR DADOS ---
     async function carregarDados() {
-        console.log("Buscando dados no Supabase...");
-        
-        // 1. Carregar Agenda
-        const { data: agenda, error: err1 } = await _supabase.from('agenda').select('*').order('data_tarefa', { ascending: true });
-        if (agenda) {
-            dadosGerais = agenda;
-            popularFiltroObras(agenda);
-            renderizarAgenda(agenda);
+        try {
+            const { data, error } = await _supabase
+                .from('agenda')
+                .select('*')
+                .order('data_tarefa', { ascending: true });
+
+            if (error) throw error;
+
+            // Formata para o nosso padrão local
+            dadosPlanilha = data.map((item, index) => ({
+                id_banco: item.id,
+                idx: index,
+                Data: formatarDataBancoParaLocal(item.data_tarefa),
+                DataRaw: item.data_tarefa, // Para ordenação se precisar
+                Obra: item.obra || '',
+                Tarefas: item.tarefas || '',
+                Status: item.status || 'Pendente',
+                Historico: typeof item.historico === 'string' ? JSON.parse(item.historico) : (item.historico || []),
+                Prioridade: item.prioridade || false
+            }));
+
+            popularFiltros();
+            renderTabela(dadosPlanilha);
+        } catch (err) {
+            console.error("Erro Supabase:", err);
+            document.getElementById('corpo-tabela').innerHTML = `<tr><td colspan="6" class="text-danger">Erro ao carregar dados do Supabase.</td></tr>`;
+        }
+    }
+
+    // --- 4. RENDERIZAR TABELA ---
+    function renderTabela(lista) {
+        const tbody = document.getElementById('corpo-tabela');
+        if (lista.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Nenhum registro encontrado.</td></tr>';
+            return;
         }
 
-        // 2. Carregar Financeiro
-        const { data: boletos, error: err2 } = await _supabase.from('boletos').select('*').eq('status', 'Aberto').order('vencimento', { ascending: true });
-        if (boletos) renderizarFinanceiro(boletos);
-    }
+        tbody.innerHTML = lista.map((item, i) => {
+            // Pega a última data de cobrança, se existir no histórico
+            let ultimaProxData = '---';
+            if (item.Historico && item.Historico.length > 0) {
+                const ultHist = item.Historico[item.Historico.length - 1];
+                if (ultHist && ultHist.proximaData) ultimaProxData = ultHist.proximaData;
+            }
 
-    function renderizarAgenda(lista) {
-        const tbody = document.getElementById('corpo-tabela');
-        tbody.innerHTML = lista.map(item => `
-            <tr>
-                <td>${item.data_tarefa ? item.data_tarefa.split('-').reverse().join('/') : '---'}</td>
-                <td><strong>${item.obra}</strong></td>
-                <td>
-                    ${item.prioridade ? '<i class="fas fa-star prioridade-star me-2"></i>' : ''}
-                    ${item.tarefas}
-                </td>
-                <td><span class="badge-sap badge-${item.status.toLowerCase() === 'concluído' ? 'concluido' : 'pendente'}">${item.status}</span></td>
-                <td><button class="btn btn-sm btn-light border" onclick="alert('Funcionalidade de edição via nuvem em breve')"><i class="fas fa-edit"></i></button></td>
-            </tr>
-        `).join('');
-    }
+            const classeBadge = item.Status.toLowerCase() === 'concluído' ? 'concluido' : 
+                                item.Status.toLowerCase() === 'pendente' ? 'pendente' : 'aberto';
 
-    function renderizarFinanceiro(boletos) {
-        const container = document.getElementById('financeiro-container');
-        const obras = [...new Set(boletos.map(b => b.obra))];
-        
-        container.innerHTML = obras.map(obra => {
-            const boletosObra = boletos.filter(b => b.obra === obra);
-            const total = boletosObra.reduce((acc, b) => acc + (b.valor || 0), 0);
             return `
-                <div class="mb-4">
-                    <h6 class="d-flex justify-content-between border-bottom pb-2">
-                        <span>${obra}</span>
-                        <span class="text-danger">Total: R$ ${total.toLocaleString('pt-BR')}</span>
-                    </h6>
-                    <table class="table table-sm">
-                        ${boletosObra.map(b => `
-                            <tr>
-                                <td width="120">${b.vencimento.split('-').reverse().join('/')}</td>
-                                <td>${b.fornecedor}</td>
-                                <td class="text-end">R$ ${b.valor.toLocaleString('pt-BR')}</td>
-                            </tr>
-                        `).join('')}
-                    </table>
-                </div>
+                <tr>
+                    <td>${item.Data}</td>
+                    <td><strong>${item.Obra}</strong></td>
+                    <td>
+                        ${item.Prioridade ? '<i class="fas fa-star prioridade-star me-1" title="Prioridade"></i>' : ''}
+                        ${item.Tarefas}
+                    </td>
+                    <td><span class="badge-sap badge-${classeBadge}">${item.Status}</span></td>
+                    <td class="text-muted small"><i class="far fa-calendar-alt me-1"></i>${ultimaProxData}</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-light border" onclick="abrirModal(${item.idx})">
+                            <i class="fas fa-edit text-primary"></i>
+                        </button>
+                    </td>
+                </tr>
             `;
         }).join('');
     }
 
-    function popularFiltroObras(lista) {
+    // --- 5. FILTROS ---
+    function popularFiltros() {
         const select = document.getElementById('filtroObra');
-        const obras = [...new Set(lista.map(item => item.obra))];
-        select.innerHTML = '<option value="">Todas as Obras</option>' + 
-            obras.map(o => `<option value="${o}">${o}</option>`).join('');
+        const obras = [...new Set(dadosPlanilha.map(i => i.Obra).filter(o => o))];
+        select.innerHTML = '<option value="">Todas as Obras</option>' + obras.map(o => `<option value="${o}">${o}</option>`).join('');
     }
 
-    function filtrar() {
-        const texto = document.getElementById('filtroTexto').value.toLowerCase();
+    function filtrarTabela() {
+        const txt = document.getElementById('filtroTexto').value.toLowerCase();
         const obra = document.getElementById('filtroObra').value;
-        const filtrados = dadosGerais.filter(i => 
-            (i.tarefas.toLowerCase().includes(texto) || i.obra.toLowerCase().includes(texto)) &&
-            (obra === "" || i.obra === obra)
+        const status = document.getElementById('filtroStatus').value;
+
+        const filtrados = dadosPlanilha.filter(i => 
+            (i.Tarefas.toLowerCase().includes(txt) || i.Obra.toLowerCase().includes(txt)) &&
+            (obra === "" || i.Obra === obra) &&
+            (status === "" || i.Status === status)
         );
-        renderizarAgenda(filtrados);
+        renderTabela(filtrados);
     }
 
+    // --- 6. GESTÃO DO MODAL ---
+    const modal = new bootstrap.Modal(document.getElementById('editModal'));
+
+    function novaObra() {
+        document.getElementById('m-idx').value = "";
+        document.getElementById('m-id-banco').value = "";
+        document.getElementById('m-data').value = new Date().toISOString().split('T')[0];
+        document.getElementById('m-obra').value = "";
+        document.getElementById('m-tarefa').value = "";
+        document.getElementById('m-status').value = "Pendente";
+        document.getElementById('m-prioridade').checked = false;
+        
+        document.getElementById('m-historico-input').value = "";
+        document.getElementById('m-proxima-data').value = "";
+        document.getElementById('m-historico-lista').innerHTML = "<p class='text-muted small'>Nova tarefa. Nenhum histórico.</p>";
+        
+        modal.show();
+    }
+
+    function abrirModal(idx) {
+        const item = dadosPlanilha[idx];
+        
+        document.getElementById('m-idx').value = idx;
+        document.getElementById('m-id-banco').value = item.id_banco;
+        document.getElementById('m-data').value = formatarDataLocalParaBanco(item.Data) || "";
+        document.getElementById('m-obra').value = item.Obra;
+        document.getElementById('m-tarefa').value = item.Tarefas;
+        document.getElementById('m-status').value = item.Status;
+        document.getElementById('m-prioridade').checked = item.Prioridade;
+        
+        // Limpa campos de nova entrada
+        document.getElementById('m-historico-input').value = "";
+        document.getElementById('m-proxima-data').value = "";
+
+        // Renderiza histórico antigo
+        const containerHist = document.getElementById('m-historico-lista');
+        if (item.Historico && item.Historico.length > 0) {
+            containerHist.innerHTML = item.Historico.map(h => `
+                <div class="historico-box">
+                    <strong><i class="far fa-clock me-1"></i>${h.data || ''}</strong><br>
+                    ${h.texto}<br>
+                    ${h.proximaData ? `<small class="text-primary mt-1 d-block"><i class="far fa-calendar-check me-1"></i>Próxima Ação: ${h.proximaData}</small>` : ''}
+                </div>
+            `).join('');
+            // Joga o scroll para baixo
+            setTimeout(() => containerHist.scrollTop = containerHist.scrollHeight, 100);
+        } else {
+            containerHist.innerHTML = "<p class='text-muted small'>Nenhum andamento registrado.</p>";
+        }
+
+        modal.show();
+    }
+
+    // --- 7. SALVAR NA NUVEM (SUPABASE) ---
+    async function salvarEdicao() {
+        const idBanco = document.getElementById('m-id-banco').value;
+        const idxLocal = document.getElementById('m-idx').value;
+        const dataInput = document.getElementById('m-data').value;
+        const obra = document.getElementById('m-obra').value;
+        const tarefa = document.getElementById('m-tarefa').value;
+        const status = document.getElementById('m-status').value;
+        const prioridade = document.getElementById('m-prioridade').checked;
+        
+        const historicoInput = document.getElementById('m-historico-input').value.trim();
+        const proximaData = document.getElementById('m-proxima-data').value;
+
+        if (!obra || !tarefa) {
+            alert("Atenção: Os campos Obra e Tarefa são obrigatórios.");
+            return;
+        }
+
+        // Base dos dados
+        const dadosSupabase = {
+            data_tarefa: dataInput || null,
+            obra: obra,
+            tarefas: tarefa,
+            status: status,
+            prioridade: prioridade
+        };
+
+        try {
+            if (!idBanco) {
+                // INSERT (NOVA TAREFA)
+                dadosSupabase.historico = [];
+                if (historicoInput) {
+                    dadosSupabase.historico.push({
+                        data: new Date().toLocaleString('pt-BR'),
+                        texto: historicoInput,
+                        proximaData: formatarDataBancoParaLocal(proximaData)
+                    });
+                }
+                const { error } = await _supabase.from('agenda').insert([dadosSupabase]);
+                if (error) throw error;
+            } else {
+                // UPDATE (EDITAR TAREFA EXISTENTE)
+                const itemExistente = dadosPlanilha[idxLocal];
+                let novoHistorico = [...itemExistente.Historico];
+                
+                if (historicoInput) {
+                    novoHistorico.push({
+                        data: new Date().toLocaleString('pt-BR'),
+                        texto: historicoInput,
+                        proximaData: formatarDataBancoParaLocal(proximaData)
+                    });
+                }
+                dadosSupabase.historico = novoHistorico;
+
+                const { error } = await _supabase.from('agenda').update(dadosSupabase).eq('id', idBanco);
+                if (error) throw error;
+            }
+
+            modal.hide();
+            carregarDados(); // Recarrega a tabela com as atualizações
+            
+        } catch (err) {
+            console.error("Erro ao salvar:", err);
+            alert("Erro ao salvar dados no Supabase. Verifique a conexão.");
+        }
+    }
+
+    // --- 8. GERAR PDF (IDÊNTICO AO SEU ORIGINAL) ---
     function gerarPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text("Relatório de Obras - Cloud", 14, 15);
+        
+        doc.setFontSize(14);
+        doc.text("Relatório de Obras - Nuvem", 14, 15);
+        
+        // Pega as linhas visíveis da tabela, aplicando os filtros atuais
+        const linhasParaPDF = dadosPlanilha.filter(i => {
+            const txt = document.getElementById('filtroTexto').value.toLowerCase();
+            const ob = document.getElementById('filtroObra').value;
+            const st = document.getElementById('filtroStatus').value;
+            return (i.Tarefas.toLowerCase().includes(txt) || i.Obra.toLowerCase().includes(txt)) &&
+                   (ob === "" || i.Obra === ob) && (st === "" || i.Status === st);
+        });
+
+        const bodyData = linhasParaPDF.map(i => [i.Data, i.Obra, i.Tarefas, i.Status]);
+
         doc.autoTable({
             head: [['Data', 'Obra', 'Tarefa', 'Status']],
-            body: dadosGerais.map(i => [i.data_tarefa, i.obra, i.tarefas, i.status]),
+            body: bodyData,
             startY: 25,
-            theme: 'striped'
+            theme: 'striped',
+            headStyles: { fillColor: [0, 112, 243] }
         });
-        doc.save(`Obras_Nuvem_${new Date().toLocaleDateString()}.pdf`);
+
+        const finalY = doc.lastAutoTable.finalY || 30; 
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(150, 150, 150); 
+        
+        const dataGeracao = `Relatório Gerado na Nuvem em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`;
+        doc.text(dataGeracao, 14, finalY + 10);
+        
+        doc.save(`Obras_Cloud_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`);
     }
 
+    // --- INICIALIZAÇÃO ---
     window.onload = carregarDados;
-</script>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</script>
 </body>
 </html>

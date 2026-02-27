@@ -1,59 +1,216 @@
-// Configurações do Supabase (Extraídas do seu sync_supabase.js)
-const _supabase = supabase.createClient(
-    'https://ywooulafmxwucedysuwa.supabase.co', 
-    'sb_publishable_9GaW4k4aE5yUjTSTVBYF3g_NZy4Fy7Y'
-);
-
-async function carregarDados() {
-    console.log("Iniciando busca de dados...");
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Obras - Nuvem</title>
     
-    // 1. Busca Agenda
-    const { data: agenda, error: err1 } = await _supabase
-        .from('agenda')
-        .select('*')
-        .order('data_tarefa', { ascending: true });
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    if (err1) console.error("Erro na Agenda:", err1);
+    <style>
+        :root {
+            --bg-body: #f8fafc;
+            --primary: #0f172a;
+            --accent: #3b82f6;
+            --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
 
-    if (agenda) {
-        const html = agenda.map(item => {
-            // Ajuste para formatar data sem erro de fuso horário
-            const dataFormatada = item.data_tarefa ? item.data_tarefa.split('-').reverse().join('/') : '---';
-            return `
-                <tr>
-                    <td>${dataFormatada}</td>
-                    <td>${item.obra || ''}</td>
-                    <td>${item.tarefas || ''}</td>
-                    <td class="status-${(item.status || '').toLowerCase()}">${item.status || ''}</td>
-                </tr>
-            `;
-        }).join('');
-        document.getElementById('tabela-agenda').innerHTML = html;
-    }
+        body { 
+            background-color: var(--bg-body); 
+            font-family: 'Inter', sans-serif; 
+            color: #1e293b;
+        }
 
-    // 2. Busca Boletos
-    const { data: boletos, error: err2 } = await _supabase
-        .from('boletos')
-        .select('*')
-        .eq('status', 'Aberto')
-        .order('vencimento', { ascending: true });
+        .navbar {
+            background-color: var(--primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
 
-    if (err2) console.error("Erro nos Boletos:", err2);
+        .card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 2rem;
+            background: white;
+        }
 
-    if (boletos) {
-        const html = boletos.map(item => {
-            const vencFormatado = item.vencimento ? item.vencimento.split('-').reverse().join('/') : '---';
-            const valorFormatado = item.valor ? item.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00';
-            return `
-                <tr>
-                    <td>${vencFormatado}</td>
-                    <td>${item.fornecedor || ''}</td>
-                    <td>${valorFormatado}</td>
-                </tr>
-            `;
-        }).join('');
-        document.getElementById('tabela-boletos').innerHTML = html;
-    }
-}
+        .card-header {
+            background: transparent;
+            border-bottom: 1px solid #f1f5f9;
+            padding: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-carregarDados();
+        .table thead th {
+            background-color: #f8fafc;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            border: none;
+        }
+
+        .badge-status {
+            padding: 0.5em 1em;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-concluido { background-color: #dcfce7; color: #15803d; }
+        .status-pendente { background-color: #fef9c3; color: #854d0e; }
+        .status-aberto { background-color: #dbeafe; color: #1d4ed8; }
+
+        .prioridade-star { color: #f59e0b; }
+        
+        #loader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 3px;
+            background: var(--accent);
+            display: none;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader"></div>
+
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container">
+            <span class="navbar-brand"><i class="fas fa-city me-2"></i> Dashboard de Obras</span>
+            <button class="btn btn-sm btn-outline-light" onclick="carregarDados()">
+                <i class="fas fa-sync-alt me-1"></i> Atualizar
+            </button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <span><i class="fas fa-calendar-alt me-2 text-primary"></i>Agenda de Tarefas</span>
+                    </div>
+                    <div class="table-responsive p-3">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Obra</th>
+                                    <th>Tarefa</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-agenda">
+                                <tr><td colspan="4" class="text-center py-4 text-muted">Carregando dados...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <span><i class="fas fa-dollar-sign me-2 text-success"></i>Boletos em Aberto</span>
+                    </div>
+                    <div class="table-responsive p-3">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Venc.</th>
+                                    <th>Fornecedor</th>
+                                    <th>Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-boletos">
+                                <tr><td colspan="3" class="text-center py-4 text-muted">Carregando dados...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Credenciais extraídas do seu sync_supabase.js
+        const SUPABASE_URL = 'https://ywooulafmxwucedysuwa.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_9GaW4k4aE5yUjTSTVBYF3g_NZy4Fy7Y';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        function formatarDataBR(dataISO) {
+            if (!dataISO) return '---';
+            const partes = dataISO.split('-');
+            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+
+        async function carregarDados() {
+            const loader = document.getElementById('loader');
+            loader.style.display = 'block';
+
+            try {
+                // 1. Carregar Agenda
+                const { data: agenda, error: errorAgenda } = await _supabase
+                    .from('agenda')
+                    .select('*')
+                    .order('data_tarefa', { ascending: true });
+
+                if (errorAgenda) throw errorAgenda;
+
+                document.getElementById('tabela-agenda').innerHTML = agenda.length > 0 ? 
+                    agenda.map(item => `
+                        <tr>
+                            <td class="text-nowrap">${formatarDataBR(item.data_tarefa)}</td>
+                            <td><strong>${item.obra || ''}</strong></td>
+                            <td>
+                                ${item.prioridade ? '<i class="fas fa-star prioridade-star me-1"></i>' : ''}
+                                ${item.tarefas || ''}
+                            </td>
+                            <td>
+                                <span class="badge-status status-${(item.status || 'pendente').toLowerCase()}">
+                                    ${item.status || 'Pendente'}
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('') : '<tr><td colspan="4" class="text-center">Nenhuma tarefa encontrada.</td></tr>';
+
+                // 2. Carregar Boletos
+                const { data: boletos, error: errorBoletos } = await _supabase
+                    .from('boletos')
+                    .select('*')
+                    .eq('status', 'Aberto')
+                    .order('vencimento', { ascending: true });
+
+                if (errorBoletos) throw errorBoletos;
+
+                document.getElementById('tabela-boletos').innerHTML = boletos.length > 0 ?
+                    boletos.map(item => `
+                        <tr>
+                            <td class="text-nowrap text-muted">${formatarDataBR(item.vencimento)}</td>
+                            <td><small>${item.fornecedor || ''}</small></td>
+                            <td class="fw-bold">R$ ${parseFloat(item.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                    `).join('') : '<tr><td colspan="3" class="text-center">Tudo pago!</td></tr>';
+
+            } catch (err) {
+                console.error("Erro ao carregar dados:", err);
+                alert("Erro ao conectar com o Supabase. Verifique o console.");
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        // Inicia a carga
+        window.onload = carregarDados;
+    </script>
+</body>
+</html>

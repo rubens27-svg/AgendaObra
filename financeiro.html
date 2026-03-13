@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM Obras — Financeiro</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+<script src="config.js"></script>
+
+<style>
+:root {
+    --ink:     #0f1923;
+    --ink2:    #3d5166;
+    --ink3:    #7a8fa3;
+    --rule:    #e4eaf0;
+    --bg:      #f4f7fa;
+    --surface: #ffffff;
+    --accent:  #1a6cf6;
+    --danger:  #e0341e;
+    --green:   #1a7d4e;
+    --warn:    #f0b429;
+    --side-w:  72px;
+    --ff:      'DM Sans', sans-serif;
+    --fm:      'DM Mono', monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--ff); background: var(--bg); color: var(--ink); font-size: 0.875rem; }
+
+.sidebar {
+    position: fixed; left: 0; top: 0; height: 100vh; width: var(--side-w);
+    background: var(--ink); display: flex; flex-direction: column;
+    align-items: center; padding: 18px 0 12px; gap: 4px; z-index: 1000;
+}
+.sidebar .logo {
+    width: 36px; height: 36px; background: var(--accent);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #fff; font-size: 0.85rem; margin-bottom: 12px;
+}
+.nav-btn {
+    width: 52px; height: 52px; background: transparent; border: none;
+    border-radius: 10px; color: #7a8fa3; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; font-size: 0.55rem; font-weight: 500; letter-spacing: 0.3px; transition: all .15s;
+}
+.nav-btn i { font-size: 1.25rem; }
+.nav-btn:hover  { background: rgba(255,255,255,.08); color: #fff; }
+.nav-btn.active { background: var(--accent); color: #fff; }
+.nav-btn.danger { color: #f87171; }
+.nav-btn.danger:hover { background: rgba(248,113,113,.15); color: #f87171; }
+.sidebar-spacer { flex: 1; }
+
+.main { margin-left: var(--side-w); }
+
+/* ── Topbar ── */
+.topbar { padding: 18px 28px 0; display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.topbar h1 { margin: 0; font-size: 1.35rem; font-weight: 700; }
+.topbar p  { margin: 2px 0 0; color: var(--ink3); font-size: 0.8rem; }
+.status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 500; border: 1px solid var(--rule); }
+.status-pill.online  { background: #edfaf3; border-color: #27ae60; color: #1a7d4e; }
+.status-pill.offline { background: #fff3f3; border-color: #f8a0a0; color: #b42020; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* ── Cards métricas ── */
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; padding: 18px 28px; }
+.metric {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: 10px;
+    padding: 14px 16px; cursor: pointer; transition: all .15s;
+}
+.metric:hover  { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,108,246,.08); }
+.metric.active { border-color: var(--accent); border-width: 2px; }
+.metric small  { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--ink3); display: block; margin-bottom: 4px; }
+.metric span   { font-size: 1.3rem; font-weight: 700; display: block; }
+.metric.vencido span { color: var(--danger); }
+.metric.hoje   span  { color: var(--warn); }
+.metric.total  span  { color: var(--ink); }
+.metric.pago   span  { color: var(--green); }
+
+/* ── Filtros ── */
+.filters { padding: 0 28px 14px; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
+.filter-group { display: flex; flex-direction: column; gap: 3px; }
+.filter-group label { font-size: 0.7rem; font-weight: 500; color: var(--ink3); text-transform: uppercase; letter-spacing: .4px; }
+.filter-group input,
+.filter-group select { height: 32px; padding: 0 10px; border: 1px solid var(--rule); border-radius: 6px; font-family: var(--ff); font-size: 0.82rem; color: var(--ink); background: var(--surface); outline: none; transition: border .15s; }
+.filter-group input:focus, .filter-group select:focus { border-color: var(--accent); }
+.filter-group select { min-width: 140px; }
+.btn-clear { height: 32px; padding: 0 14px; background: transparent; border: 1px solid var(--rule); border-radius: 6px; color: var(--ink3); font-family: var(--ff); font-size: 0.8rem; cursor: pointer; transition: all .15s; }
+.btn-clear:hover { border-color: var(--ink3); color: var(--ink); }
+
+/* ── Tabela ── */
+.table-wrap { padding: 0 28px 40px; }
+.table-card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; }
+thead th { background: #f8fafc; padding: 10px 14px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--ink3); border-bottom: 1px solid var(--rule); white-space: nowrap; cursor: pointer; user-select: none; }
+thead th:hover { color: var(--accent); }
+tbody td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-size: 0.875rem; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: #f8fbff; }
+
+.obra-tag { font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: .4px; }
+.val { font-family: var(--fm); font-size: 0.82rem; }
+.badge-status { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.72rem; font-weight: 600; border: 1px solid transparent; }
+.badge-aberto  { background: #fff4f0; color: var(--danger);  border-color: #f5b5a8; }
+.badge-pago    { background: #edfaf3; color: var(--green);   border-color: #9edabc; }
+.badge-vencido { background: #fff0e0; color: #a05000;        border-color: #f0c080; }
+
+.row-vencido td { background: #fff8f6 !important; }
+.row-hoje    td { background: #fffbec !important; }
+
+.btn-edit { width: 28px; height: 28px; border: 1px solid var(--rule); border-radius: 6px; background: transparent; color: var(--ink3); cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; justify-content: center; }
+.btn-edit:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.empty-row td { text-align: center; padding: 40px; color: var(--ink3); font-size: 0.85rem; }
+
+/* ── Modal ── */
+.modal-content { border: none; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.15); }
+.modal-header  { border-bottom: 1px solid var(--rule); padding: 18px 22px 14px; }
+.modal-title   { font-weight: 700; font-size: 1rem; }
+.modal-footer  { border-top: 1px solid var(--rule); padding: 12px 22px; }
+.modal-body    { padding: 20px 22px; }
+label.flabel   { display: block; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--ink3); margin-bottom: 5px; }
+.form-control, .form-select { border: 1px solid var(--rule); border-radius: 7px; font-family: var(--ff); font-size: 0.875rem; color: var(--ink); padding: 7px 10px; transition: border .15s; }
+.form-control:focus, .form-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,108,246,.1); }
+
+/* ── Import banner ── */
+.import-banner { margin: 0 28px 10px; background: #f0f6ff; border: 1px solid #a0c0f8; border-radius: 8px; padding: 9px 14px; font-size: 0.8rem; color: #1a4fb4; display: none; align-items: center; gap: 10px; }
+.import-banner.show { display: flex; }
+.btn-import { padding: 3px 10px; border-radius: 5px; border: 1px solid #1a4fb4; background: #1a4fb4; color: #fff; font-size: 0.75rem; cursor: pointer; font-family: var(--ff); white-space: nowrap; }
+
+/* ── Toast ── */
+.toast-bar { position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 0.82rem; font-weight: 500; box-shadow: 0 4px 16px rgba(0,0,0,.2); transform: translateY(20px); opacity: 0; transition: all .25s; pointer-events: none; }
+.toast-bar.show { transform: translateY(0); opacity: 1; }
+.toast-bar.ok  { background: #1a7d4e; }
+.toast-bar.err { background: var(--danger); }
+
+/* ── Rodapé sumário ── */
+.table-footer { padding: 10px 16px; background: #f8fafc; border-top: 1px solid var(--rule); display: flex; justify-content: flex-end; gap: 24px; font-size: 0.8rem; color: var(--ink2); }
+.table-footer strong { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo">CR</div>
+    <button class="nav-btn" onclick="window.location.href='index.html'" title="Agenda"><i class="fa-solid fa-list-check"></i>Agenda</button>
+    <button class="nav-btn active" title="Financeiro"><i class="fa-solid fa-file-invoice-dollar"></i>Boletos</button>
+    <button class="nav-btn" onclick="gerarPDF()" title="Exportar PDF"><i class="fa-solid fa-file-export"></i>PDF</button>
+    <div class="sidebar-spacer"></div>
+    <button class="nav-btn" id="btnAtualizar" onclick="atualizarDoExcel()" title="Atualizar das planilhas originais via Excel"><i class="fa-solid fa-rotate-right"></i>Atualizar</button>
+    <button class="nav-btn danger" onclick="window.location.href='index.html'" title="Voltar"><i class="fa-solid fa-arrow-left"></i>Voltar</button>
+</div>
+
+<div class="main">
+
+    <div class="topbar">
+        <div>
+            <h1>Controle Financeiro — Boletos</h1>
+            <p id="subtitulo">Carregando...</p>
+        </div>
+        <div id="statusPill" class="status-pill offline"><span class="dot"></span> Verificando...</div>
+    </div>
+
+    <div style="margin:10px 28px 0;padding:9px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:0.78rem;color:#92400e;display:flex;align-items:center;gap:8px">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>Somente leitura. A baixa é feita nas planilhas originais. Clique em <strong>Atualizar</strong> para sincronizar os status.</span>
+    </div>
+    <div id="syncLog" style="display:none;margin:8px 28px 0;padding:10px 14px;background:#f0f6ff;border:1px solid #a0c0f8;border-radius:8px;font-size:0.8rem;color:#1a4fb4"></div>
+
+    <div class="metrics" id="metricsRow">
+        <div class="metric vencido" id="m-vencido" onclick="filtrarStatus('vencido')">
+            <small>Vencidos</small><span id="mv-val">R$ 0</span><small id="mv-cnt" style="text-transform:none;letter-spacing:0;font-weight:400">0 boletos</small>
+        </div>
+        <div class="metric hoje" id="m-hoje" onclick="filtrarStatus('hoje')">
+            <small>Vencem hoje</small><span id="mh-val">R$ 0</span><small id="mh-cnt" style="text-transform:none;letter-spacing:0;font-weight:400">0 boletos</small>
+        </div>
+        <div class="metric total" id="m-aberto" onclick="filtrarStatus('Aberto')">
+            <small>Total em aberto</small><span id="ma-val">R$ 0</span><small id="ma-cnt" style="text-transform:none;letter-spacing:0;font-weight:400">0 boletos</small>
+        </div>
+        <div class="metric pago" id="m-pago" onclick="filtrarStatus('Pago')">
+            <small>Pagos (período)</small><span id="mp-val">R$ 0</span><small id="mp-cnt" style="text-transform:none;letter-spacing:0;font-weight:400">0 boletos</small>
+        </div>
+    </div>
+
+    <div class="filters">
+        <div class="filter-group">
+            <label>Busca</label>
+            <input type="text" id="fTexto" placeholder="Obra ou fornecedor..." oninput="renderizar()" style="width:220px">
+        </div>
+        <div class="filter-group">
+            <label>Status</label>
+            <select id="fStatus" onchange="renderizar()">
+                <option value="">Todos</option>
+                <option value="Aberto" selected>Aberto</option>
+                <option value="Pago">Pago</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Obra</label>
+            <select id="fObra" onchange="renderizar()"><option value="">Todas</option></select>
+        </div>
+        <div class="filter-group">
+            <label>Venc. de</label>
+            <input type="date" id="fDe" onchange="renderizar()" style="width:140px">
+        </div>
+        <div class="filter-group">
+            <label>Até</label>
+            <input type="date" id="fAte" onchange="renderizar()" style="width:140px">
+        </div>
+        <button class="btn-clear" onclick="limparFiltros()">✕ Limpar</button>
+    </div>
+
+    <div id="importBanner" class="import-banner">
+        <i class="fa-solid fa-file-excel"></i>
+        Boletos.xlsx detectado. Deseja importar para o Supabase?
+        <button class="btn-import" onclick="importarExcel()">Importar agora</button>
+        <button class="btn-import" style="background:transparent;color:#1a4fb4;" onclick="document.getElementById('importBanner').classList.remove('show')">Ignorar</button>
+    </div>
+
+    <div class="table-wrap">
+        <div class="table-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="ordenarPor('obra')">Obra</th>
+                        <th onclick="ordenarPor('fornecedor')">Fornecedor</th>
+                        <th onclick="ordenarPor('vencimento')">Vencimento</th>
+                        <th onclick="ordenarPor('valor')" style="text-align:right">Valor</th>
+                        <th onclick="ordenarPor('status')" style="text-align:center">Status</th>
+                        <th style="width:44px;text-align:center" title="Abrir leitor de boleto"><i class="fa-solid fa-barcode" style="font-size:.8rem"></i></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+            <div class="table-footer" id="tableFooter" style="display:none">
+                <span>Exibindo <strong id="ftCount">0</strong> registros</span>
+                <span>Total filtrado: <strong id="ftTotal">R$ 0,00</strong></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast-bar"></div>
+
+<!-- Modal removido: status é somente leitura, vem das planilhas originais via sincronização -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const _db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_KEY);
+
+let dados     = [];
+let filtrados = [];
+let ordemCol  = 'vencimento';
+let ordemDir  = 1;
+let isOnline  = false;
+let filtroMetricaAtivo = '';
+
+document.addEventListener('DOMContentLoaded', () => {
+    verificarConexao();
+    setInterval(verificarConexao, 30000);
+});
+
+// ─── Conexão ──────────────────────────────────────────────
+async function verificarConexao() {
+    try {
+        const { error } = await _db.from('boletos').select('id', { count: 'exact', head: true });
+        setStatusOnline(!error);
+        if (!error && !dados.length) carregarDados();
+    } catch {
+        setStatusOnline(false);
+        if (!dados.length) carregarLocal();
+    }
+}
+
+function setStatusOnline(online) {
+    isOnline = online;
+    const pill = document.getElementById('statusPill');
+    pill.className = `status-pill ${online ? 'online' : 'offline'}`;
+    pill.innerHTML = `<span class="dot"></span> ${online ? 'Online — Supabase' : 'Offline'}`;
+}
+
+// ─── Dados ────────────────────────────────────────────────
+async function carregarDados() {
+    try {
+        const { data, error } = await _db.from('boletos').select('*').order('vencimento', { ascending: true });
+        if (error) throw error;
+        dados = data;
+        salvarLocal(dados);
+        popularFiltroObra();
+        renderizar();
+        calcularMetricas();
+    } catch (err) {
+        carregarLocal();
+    }
+}
+
+function carregarLocal() {
+    try {
+        const raw = localStorage.getItem('crm_boletos');
+        if (raw) {
+            dados = JSON.parse(raw);
+            popularFiltroObra();
+            renderizar();
+            calcularMetricas();
+            toast('Carregado do cache local', 'ok');
+        } else {
+            dados = [];
+            renderizar();
+        }
+    } catch { dados = []; renderizar(); }
+}
+
+function salvarLocal(arr) { try { localStorage.setItem('crm_boletos', JSON.stringify(arr)); } catch {} }
+
+// ─── Filtro por obra ──────────────────────────────────────
+function popularFiltroObra() {
+    const obras = [...new Set(dados.map(r => r.obra).filter(Boolean))].sort();
+    const sel   = document.getElementById('fObra');
+    const atual = sel.value;
+    sel.innerHTML = '<option value="">Todas</option>' + obras.map(o => `<option value="${o}" ${o===atual?'selected':''}>${o}</option>`).join('');
+}
+
+// ─── Renderizar ───────────────────────────────────────────
+function renderizar() {
+    const txt    = document.getElementById('fTexto').value.toLowerCase();
+    const status = document.getElementById('fStatus').value;
+    const obra   = document.getElementById('fObra').value;
+    const de     = document.getElementById('fDe').value;
+    const ate    = document.getElementById('fAte').value;
+    const hoje   = new Date().toISOString().split('T')[0];
+
+    filtrados = dados.filter(r => {
+        const passaTxt  = !txt  || (r.fornecedor||'').toLowerCase().includes(txt) || (r.obra||'').toLowerCase().includes(txt);
+        const passaSt   = !status || r.status === status;
+        const passaObra = !obra   || r.obra === obra;
+        const passaDe   = !de    || (r.vencimento||'') >= de;
+        const passaAte  = !ate   || (r.vencimento||'') <= ate;
+        const passaMetr = !filtroMetricaAtivo || (() => {
+            if (filtroMetricaAtivo === 'vencido') return r.status !== 'Pago' && r.vencimento < hoje;
+            if (filtroMetricaAtivo === 'hoje')    return r.vencimento === hoje;
+            return r.status === filtroMetricaAtivo;
+        })();
+        return passaTxt && passaSt && passaObra && passaDe && passaAte && passaMetr;
+    });
+
+    if (ordemCol) {
+        filtrados.sort((a, b) => {
+            let va = a[ordemCol]; let vb = b[ordemCol];
+            if (ordemCol === 'valor') { va = +va; vb = +vb; }
+            else { va = (va||'').toString(); vb = (vb||'').toString(); }
+            return va < vb ? -ordemDir : va > vb ? ordemDir : 0;
+        });
+    }
+
+    const tbody = document.getElementById('tbody');
+    if (!filtrados.length) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="5"><i class="fa-regular fa-folder-open" style="font-size:1.4rem;margin-bottom:6px;display:block"></i>Nenhum boleto encontrado</td></tr>`;
+        document.getElementById('tableFooter').style.display = 'none';
+        return;
+    }
+
+    tbody.innerHTML = filtrados.map(r => {
+        const dataFmt  = r.vencimento ? r.vencimento.split('-').reverse().join('/') : '—';
+        const isVencido = r.status !== 'Pago' && r.vencimento && r.vencimento < hoje;
+        const isHoje    = r.vencimento === hoje;
+        const rowClass  = isVencido ? 'row-vencido' : isHoje ? 'row-hoje' : '';
+        const badgeCls  = r.status === 'Pago' ? 'badge-pago' : isVencido ? 'badge-vencido' : 'badge-aberto';
+        const badgeTxt  = r.status === 'Pago' ? 'Pago' : isVencido ? 'Vencido' : 'Aberto';
+        const forn      = (r.fornecedor||'—').replace(/"/g,'&quot;');
+        return `<tr class="${rowClass}">
+            <td><span class="obra-tag">${r.obra||'—'}</span></td>
+            <td>${r.fornecedor||'—'}</td>
+            <td><span style="font-family:var(--fm);font-size:.82rem">${dataFmt}</span></td>
+            <td style="text-align:right"><span class="val">R$ ${(+r.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span></td>
+            <td style="text-align:center"><span class="badge-status ${badgeCls}">${badgeTxt}</span></td>
+            <td style="text-align:center"><button class="btn-edit" title="Abrir leitor de boleto" onclick="abrirLeitor('${forn}', ${+r.valor||0})"><i class="fa-solid fa-barcode" style="font-size:.85rem"></i></button></td>
+        </tr>`;
+    }).join('');
+
+    const totalFiltrado = filtrados.reduce((s, r) => s + (+r.valor||0), 0);
+    document.getElementById('ftCount').textContent  = filtrados.length;
+    document.getElementById('ftTotal').textContent  = 'R$ ' + totalFiltrado.toLocaleString('pt-BR',{minimumFractionDigits:2});
+    document.getElementById('tableFooter').style.display = '';
+
+    atualizarSubtitulo();
+}
+
+function atualizarSubtitulo() {
+    const total  = dados.length;
+    const aberto = dados.filter(r => r.status !== 'Pago').length;
+    document.getElementById('subtitulo').textContent = `${total} boletos · ${aberto} em aberto`;
+}
+
+// ─── Métricas ─────────────────────────────────────────────
+function calcularMetricas() {
+    const hoje = new Date().toISOString().split('T')[0];
+    const vencidos = dados.filter(r => r.status !== 'Pago' && r.vencimento && r.vencimento < hoje);
+    const hojeArr  = dados.filter(r => r.vencimento === hoje && r.status !== 'Pago');
+    const abertos  = dados.filter(r => r.status !== 'Pago');
+    const pagos    = dados.filter(r => r.status === 'Pago');
+    const soma = arr => arr.reduce((s, r) => s + (+r.valor||0), 0);
+    const fmt  = v => 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    document.getElementById('mv-val').textContent = fmt(soma(vencidos));
+    document.getElementById('mv-cnt').textContent = `${vencidos.length} boletos`;
+    document.getElementById('mh-val').textContent = fmt(soma(hojeArr));
+    document.getElementById('mh-cnt').textContent = `${hojeArr.length} boletos`;
+    document.getElementById('ma-val').textContent = fmt(soma(abertos));
+    document.getElementById('ma-cnt').textContent = `${abertos.length} boletos`;
+    document.getElementById('mp-val').textContent = fmt(soma(pagos));
+    document.getElementById('mp-cnt').textContent = `${pagos.length} boletos`;
+}
+
+function filtrarStatus(v) {
+    filtroMetricaAtivo = filtroMetricaAtivo === v ? '' : v;
+    document.querySelectorAll('.metric').forEach(m => m.classList.remove('active'));
+    if (filtroMetricaAtivo) {
+        const map = { vencido: 'm-vencido', hoje: 'm-hoje', Aberto: 'm-aberto', Pago: 'm-pago' };
+        document.getElementById(map[v])?.classList.add('active');
+    }
+    renderizar();
+}
+
+// ─── Leitor de boleto ─────────────────────────────────────
+function abrirLeitor(fornecedor, valor) {
+    const txt = `${fornecedor} - R$ ${valor.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+    localStorage.setItem('boleto_pendente', txt);
+    window.open('CodigoBarras.html', '_blank');
+}
+
+// ─── Ordenação e filtros ──────────────────────────────────
+function ordenarPor(col) {
+    if (ordemCol === col) ordemDir *= -1;
+    else { ordemCol = col; ordemDir = 1; }
+    renderizar();
+}
+
+function limparFiltros() {
+    document.getElementById('fTexto').value  = '';
+    document.getElementById('fStatus').value = 'Aberto';
+    document.getElementById('fObra').value   = '';
+    document.getElementById('fDe').value     = '';
+    document.getElementById('fAte').value    = '';
+    filtroMetricaAtivo = '';
+    document.querySelectorAll('.metric').forEach(m => m.classList.remove('active'));
+    renderizar();
+}
+
+// ─── PDF ──────────────────────────────────────────────────
+function gerarPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('l', 'mm', 'a4');
+    doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.text('Relatório Financeiro — Boletos', 14, 14);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.setTextColor(100,120,140);
+    doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`, 14, 21);
+    doc.setDrawColor(200,210,220); doc.line(14, 25, 283, 25);
+    doc.autoTable({
+        startY: 30,
+        head: [['OBRA','FORNECEDOR','VENCIMENTO','VALOR','STATUS']],
+        body: filtrados.map(r => {
+            const hj = new Date().toISOString().split('T')[0];
+            const st = r.status==='Pago' ? 'PAGO' : (r.vencimento&&r.vencimento<hj?'VENCIDO':'ABERTO');
+            return [
+                r.obra||'', r.fornecedor||'',
+                r.vencimento ? r.vencimento.split('-').reverse().join('/') : '',
+                'R$ ' + (+r.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2}),
+                st
+            ];
+        }),
+        headStyles: { fillColor: [15,25,35], textColor: [255,255,255], fontSize: 9 },
+        bodyStyles: { fontSize: 8.5 },
+        alternateRowStyles: { fillColor: [244,247,250] },
+        margin: { left: 14, right: 14 }
+    });
+    const fy = doc.lastAutoTable.finalY || 30;
+    const total = filtrados.reduce((s,r) => s+(+r.valor||0), 0);
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(15,25,35);
+    doc.text(`Total filtrado: R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 14, fy+8);
+    doc.save(`Boletos_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`);
+}
+
+// ─── Atualizar das planilhas originais ────────────────────
+// Fluxo: PowerShell abre o Excel e dispara RefreshAll() nas conexões
+//        → Excel recalcula e salva o Boletos.xlsx atualizado
+//        → sync_supabase.js lê o Boletos.xlsx e faz upsert no Supabase
+//        → carregarDados() recarrega a tela com os status atualizados
+async function atualizarDoExcel() {
+    const btn = document.getElementById('btnAtualizar');
+    const log = document.getElementById('syncLog');
+    const icon = btn.querySelector('i');
+
+    // Feedback visual
+    btn.disabled = true;
+    icon.className = 'fa-solid fa-spinner fa-spin';
+    log.style.display = 'block';
+    log.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Atualizando planilhas via Excel (aguarde ~10 seg)...';
+    toast('Sincronizando com planilhas...', '');
+
+    try {
+        const res  = await fetch('/api/sincronizar-boletos', { method: 'POST' });
+        const json = await res.json();
+
+        const linhas = (json.etapas || []).map(e => `<div>${e}</div>`).join('');
+
+        if (json.ok) {
+            log.innerHTML = linhas + '<div style="margin-top:6px;font-weight:600">✅ Concluído — recarregando dados...</div>';
+            toast('Boletos sincronizados!', 'ok');
+            // Aguarda 1s para o Supabase receber os dados
+            await new Promise(r => setTimeout(r, 1000));
+            await carregarDados();
+            setTimeout(() => { log.style.display = 'none'; }, 6000);
+        } else {
+            log.innerHTML = linhas + `<div style="color:#b42020;margin-top:6px">❌ ${json.error || 'Erro na sincronização'}</div>`;
+            toast('Erro na sincronização', 'err');
+        }
+    } catch (err) {
+        log.innerHTML = `<div style="color:#b42020">❌ Servidor indisponível: ${err.message}</div>`;
+        toast('Servidor indisponível', 'err');
+    } finally {
+        btn.disabled = false;
+        icon.className = 'fa-solid fa-rotate-right';
+    }
+}
+
+function toast(msg, tipo) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className   = `toast-bar ${tipo} show`;
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>

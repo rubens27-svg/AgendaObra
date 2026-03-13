@@ -1,476 +1,1036 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agenda de Obras - Nuvem</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM Obras — Agenda</title>
 
-    <style>
-        :root {
-            --sap-bg: #f5f6f7;
-            --sap-card-bg: #ffffff;
-            --sap-text: #1d2d3e;
-            --sap-primary: #0070f3;
-            --status-concluido: #e1f4e9;
-            --status-concluido-text: #1b5e20;
-            --status-pendente: #fff3e0;
-            --status-pendente-text: #e65100;
-        }
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+<script src="config.js"></script>
 
-        body { 
-            background-color: var(--sap-bg); 
-            font-family: 'Inter', sans-serif; 
-            color: var(--sap-text); 
-        }
+<style>
+:root {
+    --ink:      #0f1923;
+    --ink2:     #3d5166;
+    --ink3:     #7a8fa3;
+    --rule:     #e4eaf0;
+    --bg:       #f4f7fa;
+    --surface:  #ffffff;
+    --accent:   #1a6cf6;
+    --accent2:  #0d4fbc;
+    --danger:   #e0341e;
+    --warn-bg:  #fffbec;
+    --warn-bd:  #f0b429;
+    --ok-bg:    #edfaf3;
+    --ok-bd:    #27ae60;
+    --side-w:   72px;
+    --ff:       'DM Sans', sans-serif;
+    --fm:       'DM Mono', monospace;
+}
 
-        .sap-card { 
-            background: var(--sap-card-bg); 
-            border-radius: 8px; 
-            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); 
-            border: 1px solid #dee2e6; 
-            margin-bottom: 20px; 
-            padding: 20px; 
-        }
+body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    /* Isso acaba com o aspecto serrilhado no Windows: */
+    -webkit-font-smoothing: antialiased; 
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 0.9rem;
+}
 
-        .table thead th { 
-            background: #f8f9fa; 
-            color: #666; 
-            font-weight: 600; 
-            font-size: 0.85rem; 
-            border-bottom: 2px solid #eee; 
-            text-transform: uppercase;
-        }
+/* Negrito para tarefas com prioridade */
+tr.prioridade td {
+    font-weight: 700;
+    color: #000; /* Deixa o preto mais forte na prioridade */
+}
 
-        .badge-sap { 
-            padding: 6px 12px; 
-            border-radius: 4px; 
-            font-weight: 600; 
-            font-size: 0.8rem; 
-        }
-        
-        .badge-concluido { background-color: var(--status-concluido); color: var(--status-concluido-text); }
-        .badge-pendente { background-color: var(--status-pendente); color: var(--status-pendente-text); }
-        .badge-aberto { background-color: #e0f2fe; color: #0284c7; }
+/* Cursor de "mãozinha" para indicar que a linha é clicável */
+#tbody tr {
+    cursor: pointer;
+}
 
-        .prioridade-star { color: #f59e0b; }
-        
-        .historico-box {
-            background: #f8f9fa;
-            border-left: 3px solid var(--sap-primary);
-            padding: 10px;
-            font-size: 0.85rem;
-            margin-bottom: 10px;
-        }
-    </style>
+/* ── Sidebar ─────────────────────────────────── */
+.sidebar {
+    position: fixed; left: 0; top: 0; height: 100vh; width: var(--side-w);
+    background: var(--ink); display: flex; flex-direction: column;
+    align-items: center; padding: 18px 0 12px; gap: 4px; z-index: 1000;
+}
+.sidebar .logo {
+    width: 36px; height: 36px; background: var(--accent);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #fff; font-size: 0.85rem; margin-bottom: 12px;
+    letter-spacing: -0.5px;
+}
+.nav-btn {
+    width: 52px; height: 52px; background: transparent; border: none;
+    border-radius: 10px; color: #7a8fa3; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; font-size: 0.55rem; font-weight: 500; letter-spacing: 0.3px;
+    transition: background .15s, color .15s;
+}
+.nav-btn i { font-size: 1.25rem; }
+.nav-btn:hover  { background: rgba(255,255,255,.08); color: #fff; }
+.nav-btn.active { background: var(--accent); color: #fff; }
+.nav-btn.danger { color: #f87171; }
+.nav-btn.danger:hover { background: rgba(248,113,113,.15); color: #f87171; }
+.sidebar-spacer { flex: 1; }
+
+/* ── Layout principal ─────────────────────────── */
+.main { margin-left: var(--side-w); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Topbar ───────────────────────────────────── */
+.topbar {
+    padding: 16px 28px 0;
+    display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.topbar-left h1 { margin: 0; font-size: 1.35rem; font-weight: 700; color: var(--ink); }
+.topbar-left p  { margin: 2px 0 0; color: var(--ink3); font-size: 0.8rem; }
+.status-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 500;
+    border: 1px solid var(--rule);
+}
+.status-pill.online  { background: var(--ok-bg);  border-color: var(--ok-bd);  color: #1a7d4e; }
+.status-pill.offline { background: #fff3f3; border-color: #f8a0a0; color: #b42020; }
+.status-pill.syncing { background: #f0f6ff; border-color: #a0c0f8; color: #1a4fb4; }
+.status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* ── Filtros ──────────────────────────────────── */
+.filters {
+    padding: 14px 28px;
+    display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px;
+}
+.filter-group { display: flex; flex-direction: column; gap: 3px; }
+.filter-group label { font-size: 0.7rem; font-weight: 500; color: var(--ink3); text-transform: uppercase; letter-spacing: .4px; }
+.filter-group input,
+.filter-group select {
+    height: 32px; padding: 0 10px; border: 1px solid var(--rule);
+    border-radius: 6px; font-family: var(--ff); font-size: 0.82rem;
+    color: var(--ink); background: var(--surface); outline: none;
+    transition: border .15s;
+}
+.filter-group input:focus,
+.filter-group select:focus { border-color: var(--accent); }
+#fTexto { width: 260px; }
+.filter-group select { width: 140px; }
+.filter-group.date input { width: 140px; }
+.btn-clear {
+    height: 32px; padding: 0 14px; background: transparent;
+    border: 1px solid var(--rule); border-radius: 6px; color: var(--ink3);
+    font-family: var(--ff); font-size: 0.8rem; cursor: pointer;
+    transition: all .15s; white-space: nowrap;
+}
+.btn-clear:hover { border-color: var(--ink3); color: var(--ink); }
+
+/* ── Tabela ───────────────────────────────────── */
+.table-wrap { flex: 1; padding: 0 28px 32px; }
+.table-card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th {
+    background: #f8fafc; padding: 10px 14px;
+    font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .5px; color: var(--ink3);
+    border-bottom: 1px solid var(--rule); white-space: nowrap; cursor: pointer;
+    user-select: none;
+}
+thead th:hover { color: var(--accent); }
+tbody td {
+    padding: 9px 14px; border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle; font-size: 0.875rem;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: #f8fbff; }
+tbody tr.prioridade td { background: var(--warn-bg) !important; border-left: 3px solid var(--warn-bd); }
+tbody tr.prioridade td:not(:first-child) { border-left: none; }
+
+.badge-status {
+    display: inline-block; padding: 2px 9px; border-radius: 20px;
+    font-size: 0.72rem; font-weight: 600; border: 1px solid transparent;
+}
+.badge-pendente  { background: #fff4f0; color: var(--danger);  border-color: #f5b5a8; }
+.badge-concluido { background: var(--ok-bg);  color: #1a7d4e; border-color: #9edabc; }
+
+.btn-edit {
+    width: 28px; height: 28px; border: 1px solid var(--rule);
+    border-radius: 6px; background: transparent; color: var(--ink3);
+    cursor: pointer; transition: all .15s;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.btn-edit:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.icon-prio { color: var(--warn-bd); font-size: 0.8rem; margin-right: 4px; }
+.col-data   { width: 100px; }
+.col-obra   { width: 130px; font-weight: 600; }
+.col-status { width: 120px; text-align: center; }
+.col-act    { width: 44px;  text-align: center; }
+
+.empty-row td { text-align: center; padding: 40px; color: var(--ink3); font-size: 0.85rem; }
+
+/* ── Modal ────────────────────────────────────── */
+.modal-content { border: none; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.15); }
+.modal-header  { border-bottom: 1px solid var(--rule); padding: 18px 22px 14px; }
+.modal-title   { font-weight: 700; font-size: 1rem; }
+.modal-footer  { border-top: 1px solid var(--rule); padding: 12px 22px; }
+.modal-body    { padding: 20px 22px; }
+label.flabel   { display: block; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+                  letter-spacing: .4px; color: var(--ink3); margin-bottom: 5px; }
+.form-control, .form-select {
+    border: 1px solid var(--rule); border-radius: 7px;
+    font-family: var(--ff); font-size: 0.875rem; color: var(--ink);
+    padding: 7px 10px; transition: border .15s;
+}
+.form-control:focus, .form-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,108,246,.1); }
+
+.hist-item {
+    padding: 10px 12px; background: #f8fafc; border-radius: 7px;
+    border-left: 3px solid var(--rule); margin-bottom: 8px;
+}
+.hist-item .hist-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.hist-item .hist-date { font-size: 0.7rem; color: var(--accent); font-weight: 600; }
+.hist-item .hist-prox { font-size: 0.7rem; background: #f0f4ff; color: var(--accent2); border-radius: 4px; padding: 1px 6px; }
+.hist-item .hist-body { font-size: 0.82rem; color: var(--ink2); margin: 0; }
+.hist-item .hist-actions { display: flex; gap: 4px; }
+.hist-item .hist-actions button { background: transparent; border: none; cursor: pointer; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem; color: var(--ink3); transition: all .15s; }
+.hist-item .hist-actions button:hover { background: var(--rule); color: var(--ink); }
+.hist-item .hist-actions button.del:hover { background: #fee2e2; color: var(--danger); }
+.hist-scroll { max-height: 220px; overflow-y: auto; padding-right: 4px; }
+
+/* Botões de ação na tabela (WhatsApp, Preview) */
+.btn-wa  { background: transparent; border: none; cursor: pointer; color: #25D366; padding: 3px 5px; border-radius: 5px; font-size: 1rem; transition: opacity .15s; }
+.btn-wa:hover  { opacity: .7; }
+.btn-prev { background: transparent; border: none; cursor: pointer; color: var(--accent); padding: 3px 5px; border-radius: 5px; font-size: 1rem; transition: opacity .15s; }
+.btn-prev:hover { opacity: .7; }
+
+/* ── Toast ────────────────────────────────────── */
+.toast-bar {
+    position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+    background: var(--ink); color: #fff; padding: 10px 18px;
+    border-radius: 8px; font-size: 0.82rem; font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0,0,0,.2);
+    transform: translateY(20px); opacity: 0;
+    transition: all .25s; pointer-events: none;
+}
+.toast-bar.show { transform: translateY(0); opacity: 1; }
+.toast-bar.ok   { background: #1a7d4e; }
+.toast-bar.err  { background: var(--danger); }
+
+/* ── Offline badge na tabela ─────────────────── */
+.offline-notice {
+    margin: 0 28px 10px;
+    background: #fff8e6; border: 1px solid var(--warn-bd); border-radius: 8px;
+    padding: 9px 14px; font-size: 0.8rem; color: #7a5800;
+    display: none; align-items: center; gap: 8px;
+}
+.offline-notice.show { display: flex; }
+
+/* ── Importação ───────────────────────────────── */
+.import-banner {
+    margin: 0 28px 10px;
+    background: #f0f6ff; border: 1px solid #a0c0f8; border-radius: 8px;
+    padding: 9px 14px; font-size: 0.8rem; color: #1a4fb4;
+    display: none; align-items: center; gap: 10px;
+}
+.import-banner.show { display: flex; }
+.btn-import {
+    padding: 3px 10px; border-radius: 5px; border: 1px solid #1a4fb4;
+    background: #1a4fb4; color: #fff; font-size: 0.75rem; cursor: pointer;
+    font-family: var(--ff); white-space: nowrap;
+}
+</style>
 </head>
 <body>
 
-<div class="container-fluid py-4">
-    <div class="sap-card">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="m-0"><i class="fas fa-tasks me-2"></i>Agenda de Obras (Nuvem)</h4>
-            <div class="d-flex gap-2">
-                <button class="btn btn-outline-secondary btn-sm" onclick="gerarPDF()"><i class="fas fa-file-pdf"></i> Exportar</button>
-                <button class="btn btn-primary btn-sm" onclick="novaObra()"><i class="fas fa-plus"></i> Nova Tarefa</button>
-            </div>
-        </div>
+<!-- ─── Sidebar ─────────────────────────────────── -->
+<div class="sidebar">
+    <div class="logo">CR</div>
+    <button class="nav-btn active" title="Agenda"><i class="fa-solid fa-list-check"></i>Agenda</button>
+    <button class="nav-btn" onclick="novaObra()" title="Nova tarefa"><i class="fa-solid fa-plus"></i>Novo</button>
+    <button class="nav-btn" onclick="abrirPendencias()" title="Pendências urgentes"><i class="fa-solid fa-bell"></i>Alertas</button>
+    <button class="nav-btn" onclick="gerarPDF()" title="Exportar PDF"><i class="fa-solid fa-file-export"></i>PDF</button>
+    <button class="nav-btn" onclick="gerarPDFDetalhado()" title="Relatório detalhado"><i class="fa-solid fa-box-archive"></i>Detalhe</button>
+    <button class="nav-btn" onclick="window.location.href='financeiro.html'" title="Boletos e financeiro"><i class="fa-solid fa-file-invoice-dollar"></i>Boletos</button>
+    <div class="sidebar-spacer"></div>
+    <button class="nav-btn" onclick="sincronizar()" title="Sincronizar"><i class="fa-solid fa-rotate"></i>Sync</button>
+    <button class="nav-btn danger" onclick="desconectar()" title="Sair"><i class="fa-solid fa-power-off"></i>Sair</button>
+</div>
 
-        <div class="row g-2 mb-3">
-            <div class="col-md-4">
-                <input type="text" id="filtroTexto" class="form-control" placeholder="Buscar tarefa ou obra..." onkeyup="filtrarTabela()">
-            </div>
-            <div class="col-md-3">
-                <select id="filtroObra" class="form-select" onchange="filtrarTabela()">
-                    <option value="">Todas as Obras</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <select id="filtroStatus" class="form-select" onchange="filtrarTabela()">
-                    <option value="">Todos os Status</option>
-                    <option value="Pendente">Pendente</option>
-                    <option value="Concluído">Concluído</option>
-                </select>
-            </div>
-        </div>
+<!-- ─── Conteúdo principal ──────────────────────── -->
+<div class="main">
 
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
+    <div class="topbar">
+        <div class="topbar-left">
+            <h1>Atividades e Pendências</h1>
+            <p id="subtitulo">Carregando...</p>
+        </div>
+        <div id="statusPill" class="status-pill offline"><span class="dot"></span> Verificando...</div>
+    </div>
+
+    <div class="filters">
+        <div class="filter-group">
+            <label>Pesquisa</label>
+            <input type="text" id="fTexto" placeholder="Obra, tarefa..." oninput="renderizar()">
+        </div>
+        <div class="filter-group">
+            <label>Status</label>
+            <select id="fStatus" onchange="renderizar()">
+                <option value="">Todos</option>
+                <option value="Pendente" selected>Pendente</option>
+                <option value="Concluído">Concluído</option>
+            </select>
+        </div>
+        <div class="filter-group date">
+            <label>De</label>
+            <input type="date" id="fDe" onchange="renderizar()">
+        </div>
+        <div class="filter-group date">
+            <label>Até</label>
+            <input type="date" id="fAte" onchange="renderizar()">
+        </div>
+        <button class="btn-clear" onclick="limparFiltros()">✕ Limpar</button>
+    </div>
+
+    <div id="offlineNotice" class="offline-notice">
+        <i class="fa-solid fa-wifi-slash"></i>
+        Modo offline — alterações salvas localmente. Serão sincronizadas quando a conexão voltar.
+    </div>
+
+    <div id="importBanner" class="import-banner">
+        <i class="fa-solid fa-file-excel"></i>
+        Planilha dados.xlsx detectada no servidor. Deseja importar para o Supabase?
+        <button class="btn-import" onclick="importarExcel()">Importar agora</button>
+        <button class="btn-import" style="background:transparent;color:#1a4fb4;" onclick="document.getElementById('importBanner').classList.remove('show')">Ignorar</button>
+    </div>
+
+    <div class="table-wrap">
+        <div class="table-card">
+            <table>
                 <thead>
                     <tr>
-                        <th width="10%">Data</th>
-                        <th width="15%">Obra</th>
-                        <th width="45%">Tarefa</th>
-                        <th width="10%">Status</th>
-                        <th width="10%">Próxima Ação</th>
-                        <th width="10%" class="text-end">Ações</th>
+                        <th class="col-data"  onclick="ordenarPor('data_tarefa')">Data</th>
+                        <th class="col-obra"  onclick="ordenarPor('obra')">Obra</th>
+                        <th onclick="ordenarPor('tarefas')">Tarefa</th>
+                        <th class="col-status" onclick="ordenarPor('status')">Status</th>
+                        <th class="col-act"></th>
                     </tr>
                 </thead>
-                <tbody id="corpo-tabela">
-                    <tr><td colspan="6" class="text-center py-4 text-muted">Carregando dados da nuvem...</td></tr>
-                </tbody>
+                <tbody id="tbody"></tbody>
             </table>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+<!-- ─── Toast ───────────────────────────────────── -->
+<div id="toast" class="toast-bar"></div>
+
+<!-- ─── Modal Edição ─────────────────────────────── -->
+<div class="modal fade" id="modalObra" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Detalhes da Tarefa</h5>
+                <h5 class="modal-title" id="modalTitulo">Nova Tarefa</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <input type="hidden" id="m-idx">
-                <input type="hidden" id="m-id-banco">
-                
+                <input type="hidden" id="m-id">
                 <div class="row g-3 mb-3">
                     <div class="col-md-4">
-                        <label class="form-label">Data de Criação</label>
+                        <label class="flabel">Data prevista</label>
                         <input type="date" id="m-data" class="form-control">
                     </div>
-                    <div class="col-md-8">
-                        <label class="form-label">Obra</label>
-                        <input type="text" id="m-obra" class="form-control" placeholder="Ex: Rio Mar">
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Tarefa Principal</label>
-                    <input type="text" id="m-tarefa" class="form-control">
-                </div>
-
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label">Status</label>
+                    <div class="col-md-4">
+                        <label class="flabel">Status</label>
                         <select id="m-status" class="form-select">
                             <option value="Pendente">Pendente</option>
                             <option value="Concluído">Concluído</option>
-                            <option value="Aberto">Aberto</option>
                         </select>
                     </div>
-                    <div class="col-md-6 d-flex align-items-end pb-2">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="m-prioridade">
-                            <label class="form-check-label text-danger fw-bold"><i class="fas fa-star prioridade-star"></i> Alta Prioridade</label>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check form-switch mb-1">
+                            <input class="form-check-input" type="checkbox" id="m-prio">
+                            <label class="form-check-label fw-bold" for="m-prio" style="color:var(--warn-bd)">
+                                <i class="fa-solid fa-triangle-exclamation"></i> Prioridade
+                            </label>
                         </div>
                     </div>
                 </div>
-
-                <hr>
-
-                <h6 class="mb-3 text-secondary"><i class="fas fa-history me-2"></i>Andamento da Tarefa</h6>
-                
-                <div id="m-historico-lista" class="mb-3" style="max-height: 200px; overflow-y: auto;">
-                    </div>
-
-                <div class="card bg-light border-0 p-3">
-                    <label class="form-label fw-bold">Novo Andamento / Observação</label>
-                    <textarea id="m-historico-input" class="form-control mb-2" rows="2" placeholder="Descreva o que foi feito ou o status atual..."></textarea>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <label class="form-label mb-0"><small>Agendar Próxima Data de Cobrança</small></label>
-                            <input type="date" id="m-proxima-data" class="form-control form-control-sm">
+                <div class="mb-3">
+                    <label class="flabel">Obra</label>
+                    <input type="text" id="m-obra" class="form-control" placeholder="Ex: Rio Mar, Lote 3...">
+                </div>
+                <div class="mb-3">
+                    <label class="flabel">Tarefa / Descrição</label>
+                    <textarea id="m-tarefa" class="form-control" rows="2" placeholder="Descreva a atividade..."></textarea>
+                </div>
+                <hr class="my-3">
+                <label class="flabel">Novo andamento</label>
+                <div class="mb-2">
+                    <textarea id="m-andamento" class="form-control mb-2" rows="2" placeholder="O que aconteceu hoje?"></textarea>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div style="flex:1;min-width:160px">
+                            <label class="flabel mb-1">Prorrogar data para</label>
+                            <input type="date" id="m-prox-data" class="form-control" style="height:32px;font-size:.82rem">
                         </div>
+                        <button class="btn btn-dark btn-sm align-self-end" type="button" onclick="adicionarAndamento()" style="height:32px;white-space:nowrap">
+                            <i class="fa-solid fa-plus me-1"></i>Registrar no Histórico
+                        </button>
                     </div>
                 </div>
-
+                <div id="hist-wrap">
+                    <label class="flabel mt-3 mb-2">Histórico de atividades</label>
+                    <div id="hist-lista" class="hist-scroll"></div>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="salvarEdicao()">Salvar na Nuvem</button>
+                <button class="btn btn-sm text-danger me-auto" onclick="excluir()" id="btnExcluir" style="display:none">
+                    <i class="fa-solid fa-trash me-1"></i>Excluir
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button class="btn btn-sm btn-primary px-4" onclick="salvar()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Modal Preview Histórico ──────────────────────────── -->
+<div class="modal fade" id="modalPreview" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--ink);color:#fff;">
+                <h5 class="modal-title">Histórico de Andamentos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div id="corpoPreview" class="modal-body" style="font-size:0.9rem"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="gerarRelatorioIndividual()">
+                    <i class="fa-solid fa-download me-1"></i>Salvar PDF
+                </button>
             </div>
         </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
-    // --- 1. CONFIGURAÇÃO SUPABASE ---
-    const SUPABASE_URL = 'https://ywooulafmxwucedysuwa.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_9GaW4k4aE5yUjTSTVBYF3g_NZy4Fy7Y';
-    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// ─── Supabase ─────────────────────────────────────────────
+const _db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_KEY);
+// historicoAtual: array em memória manipulado dentro do modal ANTES de salvar
+let historicoAtual = [];
 
-    let dadosPlanilha = []; // Armazena os dados em memória
+// ─── Estado ───────────────────────────────────────────────
+let dados       = [];          // fonte em memória
+let filtrados   = [];          // depois dos filtros
+let ordemCol    = 'data_tarefa';
+let ordemDir    = 1;
+let isOnline    = false;
+let modal;
+let _pendingSync = false;      // marcador de itens offline a sincronizar
 
-    // --- 2. FUNÇÕES DE UTILIDADE DE DATA ---
-    function formatarDataBancoParaLocal(dataISO) {
-        if (!dataISO) return '';
-        const p = dataISO.split('-');
-        return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : dataISO;
+// ─── Init ─────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    modal = new bootstrap.Modal(document.getElementById('modalObra'));
+    verificarConexao();
+    setInterval(verificarConexao, 30000);
+    window.addEventListener('online',  () => { verificarConexao(); sincronizarOffline(); });
+    window.addEventListener('offline', () => setStatusOnline(false));
+});
+
+// ─── Conexão e status ─────────────────────────────────────
+async function verificarConexao() {
+    try {
+        const { error } = await _db.from('agenda').select('id', { count: 'exact', head: true });
+        setStatusOnline(!error);
+        if (!error && !dados.length) carregarDados();
+        if (!error) sincronizarOffline();
+    } catch {
+        setStatusOnline(false);
+        if (!dados.length) carregarLocal();
     }
+}
 
-    function formatarDataLocalParaBanco(dataLocal) {
-        if (!dataLocal) return null;
-        if (dataLocal.includes('/')) {
-            const [d, m, a] = dataLocal.split('/');
-            return `${a}-${m}-${d}`;
-        }
-        return dataLocal; // já vem AAAA-MM-DD do input date
+function setStatusOnline(online) {
+    isOnline = online;
+    const pill = document.getElementById('statusPill');
+    if (online) {
+        pill.className = 'status-pill online';
+        pill.innerHTML = '<span class="dot"></span> Online — Supabase';
+        document.getElementById('offlineNotice').classList.remove('show');
+    } else {
+        pill.className = 'status-pill offline';
+        pill.innerHTML = '<span class="dot"></span> Offline';
+        document.getElementById('offlineNotice').classList.add('show');
     }
+}
 
-    // --- 3. CARREGAR DADOS ---
-    async function carregarDados() {
-        try {
-            const { data, error } = await _supabase
-                .from('agenda')
-                .select('*')
-                .order('data_tarefa', { ascending: true });
+// ─── Carregar dados ───────────────────────────────────────
+async function carregarDados() {
+    try {
+        const { data, error } = await _db
+            .from('agenda')
+            .select('*')
+            .order('data_tarefa', { ascending: true });
 
-            if (error) throw error;
+        if (error) throw error;
 
-            // Formata para o nosso padrão local
-            dadosPlanilha = data.map((item, index) => ({
-                id_banco: item.id,
-                idx: index,
-                Data: formatarDataBancoParaLocal(item.data_tarefa),
-                DataRaw: item.data_tarefa, // Para ordenação se precisar
-                Obra: item.obra || '',
-                Tarefas: item.tarefas || '',
-                Status: item.status || 'Pendente',
-                Historico: typeof item.historico === 'string' ? JSON.parse(item.historico) : (item.historico || []),
-                Prioridade: item.prioridade || false
-            }));
-
-            popularFiltros();
-            renderTabela(dadosPlanilha);
-        } catch (err) {
-            console.error("Erro Supabase:", err);
-            document.getElementById('corpo-tabela').innerHTML = `<tr><td colspan="6" class="text-danger">Erro ao carregar dados do Supabase.</td></tr>`;
-        }
+        dados = data.map(normalizar);
+        salvarLocal(dados);
+        renderizar();
+        atualizarSubtitulo();
+        verificarImportacao();
+    } catch (err) {
+        console.error('[carregarDados]', err);
+        carregarLocal();
     }
+}
 
-    // --- 4. RENDERIZAR TABELA ---
-    function renderTabela(lista) {
-        const tbody = document.getElementById('corpo-tabela');
-        if (lista.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Nenhum registro encontrado.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = lista.map((item, i) => {
-            // Pega a última data de cobrança, se existir no histórico
-            let ultimaProxData = '---';
-            if (item.Historico && item.Historico.length > 0) {
-                const ultHist = item.Historico[item.Historico.length - 1];
-                if (ultHist && ultHist.proximaData) ultimaProxData = ultHist.proximaData;
-            }
-
-            const classeBadge = item.Status.toLowerCase() === 'concluído' ? 'concluido' : 
-                                item.Status.toLowerCase() === 'pendente' ? 'pendente' : 'aberto';
-
-            return `
-                <tr>
-                    <td>${item.Data}</td>
-                    <td><strong>${item.Obra}</strong></td>
-                    <td>
-                        ${item.Prioridade ? '<i class="fas fa-star prioridade-star me-1" title="Prioridade"></i>' : ''}
-                        ${item.Tarefas}
-                    </td>
-                    <td><span class="badge-sap badge-${classeBadge}">${item.Status}</span></td>
-                    <td class="text-muted small"><i class="far fa-calendar-alt me-1"></i>${ultimaProxData}</td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-light border" onclick="abrirModal(${item.idx})">
-                            <i class="fas fa-edit text-primary"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    // --- 5. FILTROS ---
-    function popularFiltros() {
-        const select = document.getElementById('filtroObra');
-        const obras = [...new Set(dadosPlanilha.map(i => i.Obra).filter(o => o))];
-        select.innerHTML = '<option value="">Todas as Obras</option>' + obras.map(o => `<option value="${o}">${o}</option>`).join('');
-    }
-
-    function filtrarTabela() {
-        const txt = document.getElementById('filtroTexto').value.toLowerCase();
-        const obra = document.getElementById('filtroObra').value;
-        const status = document.getElementById('filtroStatus').value;
-
-        const filtrados = dadosPlanilha.filter(i => 
-            (i.Tarefas.toLowerCase().includes(txt) || i.Obra.toLowerCase().includes(txt)) &&
-            (obra === "" || i.Obra === obra) &&
-            (status === "" || i.Status === status)
-        );
-        renderTabela(filtrados);
-    }
-
-    // --- 6. GESTÃO DO MODAL ---
-    const modal = new bootstrap.Modal(document.getElementById('editModal'));
-
-    function novaObra() {
-        document.getElementById('m-idx').value = "";
-        document.getElementById('m-id-banco').value = "";
-        document.getElementById('m-data').value = new Date().toISOString().split('T')[0];
-        document.getElementById('m-obra').value = "";
-        document.getElementById('m-tarefa').value = "";
-        document.getElementById('m-status').value = "Pendente";
-        document.getElementById('m-prioridade').checked = false;
-        
-        document.getElementById('m-historico-input').value = "";
-        document.getElementById('m-proxima-data').value = "";
-        document.getElementById('m-historico-lista').innerHTML = "<p class='text-muted small'>Nova tarefa. Nenhum histórico.</p>";
-        
-        modal.show();
-    }
-
-    function abrirModal(idx) {
-        const item = dadosPlanilha[idx];
-        
-        document.getElementById('m-idx').value = idx;
-        document.getElementById('m-id-banco').value = item.id_banco;
-        document.getElementById('m-data').value = formatarDataLocalParaBanco(item.Data) || "";
-        document.getElementById('m-obra').value = item.Obra;
-        document.getElementById('m-tarefa').value = item.Tarefas;
-        document.getElementById('m-status').value = item.Status;
-        document.getElementById('m-prioridade').checked = item.Prioridade;
-        
-        // Limpa campos de nova entrada
-        document.getElementById('m-historico-input').value = "";
-        document.getElementById('m-proxima-data').value = "";
-
-        // Renderiza histórico antigo
-        const containerHist = document.getElementById('m-historico-lista');
-        if (item.Historico && item.Historico.length > 0) {
-            containerHist.innerHTML = item.Historico.map(h => `
-                <div class="historico-box">
-                    <strong><i class="far fa-clock me-1"></i>${h.data || ''}</strong><br>
-                    ${h.texto}<br>
-                    ${h.proximaData ? `<small class="text-primary mt-1 d-block"><i class="far fa-calendar-check me-1"></i>Próxima Ação: ${h.proximaData}</small>` : ''}
-                </div>
-            `).join('');
-            // Joga o scroll para baixo
-            setTimeout(() => containerHist.scrollTop = containerHist.scrollHeight, 100);
+function carregarLocal() {
+    try {
+        const raw = localStorage.getItem('crm_agenda');
+        if (raw) {
+            dados = JSON.parse(raw);
+            renderizar();
+            atualizarSubtitulo();
+            toast('Carregado do cache local', 'ok');
         } else {
-            containerHist.innerHTML = "<p class='text-muted small'>Nenhum andamento registrado.</p>";
+            dados = [];
+            renderizar();
+            toast('Sem dados. Verifique a conexão.', 'err');
         }
+    } catch { dados = []; renderizar(); }
+}
 
-        modal.show();
+function salvarLocal(arr) {
+    try { localStorage.setItem('crm_agenda', JSON.stringify(arr)); } catch {}
+}
+
+// ─── Normalização ─────────────────────────────────────────
+function normalizar(row) {
+    let hist = row.historico || [];
+    if (typeof hist === 'string') { try { hist = JSON.parse(hist); } catch { hist = []; } }
+    return {
+        id          : row.id,
+        data_tarefa : row.data_tarefa || '',
+        obra        : row.obra        || '',
+        tarefas     : row.tarefas     || '',
+        status      : row.status      || 'Pendente',
+        prioridade  : !!row.prioridade,
+        historico   : Array.isArray(hist) ? hist : []
+    };
+}
+
+// ─── Renderizar tabela ────────────────────────────────────
+function renderizar() {
+    const txt    = document.getElementById('fTexto').value.toLowerCase();
+    const status = document.getElementById('fStatus').value;
+    const de     = document.getElementById('fDe').value;
+    const ate    = document.getElementById('fAte').value;
+
+    filtrados = [...dados].filter(r => {
+        const passaTxt    = !txt || r.tarefas.toLowerCase().includes(txt) || r.obra.toLowerCase().includes(txt);
+        const passaStatus = !status || r.status === status;
+        const passaDe     = !de  || r.data_tarefa >= de;
+        const passaAte    = !ate || r.data_tarefa <= ate;
+        return passaTxt && passaStatus && passaDe && passaAte;
+    });
+
+    if (ordemCol) {
+        filtrados.sort((a, b) => {
+            const va = (a[ordemCol] || '').toString();
+            const vb = (b[ordemCol] || '').toString();
+            return va < vb ? -ordemDir : va > vb ? ordemDir : 0;
+        });
     }
 
-    // --- 7. SALVAR NA NUVEM (SUPABASE) ---
-    async function salvarEdicao() {
-        const idBanco = document.getElementById('m-id-banco').value;
-        const idxLocal = document.getElementById('m-idx').value;
-        const dataInput = document.getElementById('m-data').value;
-        const obra = document.getElementById('m-obra').value;
-        const tarefa = document.getElementById('m-tarefa').value;
-        const status = document.getElementById('m-status').value;
-        const prioridade = document.getElementById('m-prioridade').checked;
-        
-        const historicoInput = document.getElementById('m-historico-input').value.trim();
-        const proximaData = document.getElementById('m-proxima-data').value;
+    const tbody = document.getElementById('tbody');
 
-        if (!obra || !tarefa) {
-            alert("Atenção: Os campos Obra e Tarefa são obrigatórios.");
-            return;
+    if (!filtrados.length) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="5"><i class="fa-regular fa-folder-open" style="font-size:1.4rem;margin-bottom:6px;display:block"></i>Nenhum registro encontrado</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtrados.map(r => {
+        const dataFmt = r.data_tarefa ? r.data_tarefa.split('-').reverse().join('/') : '—';
+        const badgeClass = r.status.toLowerCase() === 'concluído' ? 'badge-concluido' : 'badge-pendente';
+        const prio = r.prioridade ? `<i class="fa-solid fa-triangle-exclamation icon-prio" title="Prioridade"></i>` : '';
+        const idx  = dados.indexOf(r);
+        return `<tr class="${r.prioridade ? 'prioridade' : ''}" ondblclick="abrirModal(${idx})" title="Dê um duplo clique para editar">
+            <td class="col-data"><span style="font-family:var(--fm);font-size:.8rem">${dataFmt}</span></td>
+            <td class="col-obra">${r.obra}</td>
+            <td>${prio}${r.tarefas}</td>
+            <td class="col-status"><span class="badge-status ${badgeClass}">${r.status}</span></td>
+            <td class="col-act" style="white-space:nowrap">
+                <button class="btn-wa"   onclick="enviarWhatsApp(${idx})" title="Enviar por WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>
+                <button class="btn-prev" onclick="abrirPreview(${idx})"   title="Ver histórico / PDF"><i class="fa-solid fa-file-circle-check"></i></button>
+                <button class="btn-edit" onclick="abrirModal(${idx})"     title="Editar"><i class="fa-solid fa-pen" style="font-size:.75rem"></i></button>
+            </td>
+        </tr>`;
+    
+    }).join('');
+}
+
+function atualizarSubtitulo() {
+    const total     = dados.length;
+    const pendentes = dados.filter(r => r.status !== 'Concluído').length;
+    document.getElementById('subtitulo').textContent = `${total} registros · ${pendentes} pendentes`;
+}
+
+// ─── Ordenação ────────────────────────────────────────────
+function ordenarPor(col) {
+    if (ordemCol === col) ordemDir *= -1;
+    else { ordemCol = col; ordemDir = 1; }
+    renderizar();
+}
+
+// ─── Modal ────────────────────────────────────────────────
+function novaObra() {
+    document.getElementById('m-id').value        = '';
+    document.getElementById('m-data').value      = new Date().toISOString().split('T')[0];
+    document.getElementById('m-obra').value      = '';
+    document.getElementById('m-tarefa').value    = '';
+    document.getElementById('m-status').value    = 'Pendente';
+    document.getElementById('m-prio').checked    = false;
+    document.getElementById('m-andamento').value = '';
+    document.getElementById('m-prox-data').value = '';
+    document.getElementById('btnExcluir').style.display = 'none';
+    document.getElementById('modalTitulo').textContent  = 'Nova Tarefa';
+    historicoAtual = [];
+    renderizarHistorico();
+    modal.show();
+}
+
+function abrirModal(idx) {
+    const r = dados[idx];
+    if (!r) return;
+    document.getElementById('m-id').value        = r.id || '';
+    document.getElementById('m-data').value      = r.data_tarefa || '';
+    document.getElementById('m-obra').value      = r.obra;
+    document.getElementById('m-tarefa').value    = r.tarefas;
+    document.getElementById('m-status').value    = r.status;
+    document.getElementById('m-prio').checked    = r.prioridade;
+    document.getElementById('m-andamento').value = '';
+    document.getElementById('m-prox-data').value = '';
+    document.getElementById('btnExcluir').style.display = '';
+    document.getElementById('modalTitulo').textContent  = `Editar: ${r.obra}`;
+    // Clona o histórico para edição local sem afetar o array original
+    historicoAtual = JSON.parse(JSON.stringify(r.historico || []));
+    renderizarHistorico();
+    modal.show();
+}
+
+// ─── Andamento / Histórico (manipulação local no modal) ───
+function adicionarAndamento() {
+    const texto    = document.getElementById('m-andamento').value.trim();
+    const proxData = document.getElementById('m-prox-data').value;
+    if (!texto) { toast('Descreva o andamento antes de registrar', 'err'); return; }
+
+    const entrada = { data: new Date().toLocaleString('pt-BR'), texto };
+    if (proxData) {
+        entrada.proximaData = proxData.split('-').reverse().join('/');
+        // Atualiza o campo de data da tarefa para a nova data
+        document.getElementById('m-data').value = proxData;
+    }
+
+    historicoAtual.push(entrada);
+    document.getElementById('m-andamento').value = '';
+    document.getElementById('m-prox-data').value = '';
+    renderizarHistorico();
+}
+
+function renderizarHistorico() {
+    const lista = document.getElementById('hist-lista');
+    if (!historicoAtual.length) {
+        lista.innerHTML = `<p class="text-muted" style="font-size:.82rem;margin:0">Nenhum andamento registrado.</p>`;
+        return;
+    }
+    // Exibe do mais recente para o mais antigo
+    lista.innerHTML = [...historicoAtual].reverse().map((h, iRev) => {
+        const iReal = historicoAtual.length - 1 - iRev; // índice real no array
+        return `<div class="hist-item" id="hist-item-${iReal}">
+            <div class="hist-meta">
+                <span class="hist-date"><i class="fa-regular fa-clock me-1"></i>${h.data}</span>
+                <div class="hist-actions">
+                    <button onclick="editarHistorico(${iReal})" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="del" onclick="removerHistorico(${iReal})" title="Remover"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+            <div id="hist-body-${iReal}">
+                <p class="hist-body">${h.texto}</p>
+                ${h.proximaData ? `<span class="hist-prox">Prorrogado: ${h.proximaData}</span>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+    // Rola para o topo (item mais recente)
+    lista.scrollTop = 0;
+}
+
+function editarHistorico(idx) {
+    const h = historicoAtual[idx];
+    document.getElementById(`hist-body-${idx}`).innerHTML = `
+        <textarea class="form-control form-control-sm mb-1" id="edit-txt-${idx}" rows="2">${h.texto}</textarea>
+        <div class="d-flex gap-2 align-items-center">
+            <input type="text" class="form-control form-control-sm" id="edit-prox-${idx}" placeholder="Prorrogar para dd/mm/aaaa" value="${h.proximaData||''}">
+            <button class="btn btn-success btn-sm" onclick="confirmarEdicaoHistorico(${idx})" style="white-space:nowrap">Salvar</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="renderizarHistorico()">✕</button>
+        </div>`;
+}
+
+function confirmarEdicaoHistorico(idx) {
+    historicoAtual[idx].texto      = document.getElementById(`edit-txt-${idx}`).value.trim();
+    historicoAtual[idx].proximaData = document.getElementById(`edit-prox-${idx}`).value.trim() || undefined;
+    renderizarHistorico();
+}
+
+function removerHistorico(idx) {
+    if (!confirm('Remover este andamento?')) return;
+    historicoAtual.splice(idx, 1);
+    renderizarHistorico();
+}
+
+// ─── Salvar ───────────────────────────────────────────────
+async function salvar() {
+    const id       = document.getElementById('m-id').value;
+    const obra     = document.getElementById('m-obra').value.trim();
+    const tarefa   = document.getElementById('m-tarefa').value.trim();
+
+    if (!obra || !tarefa) { toast('Obra e Tarefa são obrigatórios', 'err'); return; }
+
+    // Se há texto no campo de andamento mas não foi registrado, registra agora automaticamente
+    const andamentoPendente = document.getElementById('m-andamento').value.trim();
+    if (andamentoPendente) {
+        const proxData = document.getElementById('m-prox-data').value;
+        const entrada  = { data: new Date().toLocaleString('pt-BR'), texto: andamentoPendente };
+        if (proxData) {
+            entrada.proximaData = proxData.split('-').reverse().join('/');
+            document.getElementById('m-data').value = proxData;
         }
+        historicoAtual.push(entrada);
+    }
 
-        // Base dos dados
-        const dadosSupabase = {
-            data_tarefa: dataInput || null,
-            obra: obra,
-            tarefas: tarefa,
-            status: status,
-            prioridade: prioridade
-        };
+    const payload = {
+        data_tarefa : document.getElementById('m-data').value || null,
+        obra, tarefas: tarefa,
+        status      : document.getElementById('m-status').value,
+        prioridade  : document.getElementById('m-prio').checked,
+        historico   : historicoAtual   // array, não string
+    };
 
+    if (isOnline) {
         try {
-            if (!idBanco) {
-                // INSERT (NOVA TAREFA)
-                dadosSupabase.historico = [];
-                if (historicoInput) {
-                    dadosSupabase.historico.push({
-                        data: new Date().toLocaleString('pt-BR'),
-                        texto: historicoInput,
-                        proximaData: formatarDataBancoParaLocal(proximaData)
-                    });
-                }
-                const { error } = await _supabase.from('agenda').insert([dadosSupabase]);
-                if (error) throw error;
+            let result;
+            if (id) {
+                result = await _db.from('agenda').update(payload).eq('id', id);
             } else {
-                // UPDATE (EDITAR TAREFA EXISTENTE)
-                const itemExistente = dadosPlanilha[idxLocal];
-                let novoHistorico = [...itemExistente.Historico];
-                
-                if (historicoInput) {
-                    novoHistorico.push({
-                        data: new Date().toLocaleString('pt-BR'),
-                        texto: historicoInput,
-                        proximaData: formatarDataBancoParaLocal(proximaData)
-                    });
-                }
-                dadosSupabase.historico = novoHistorico;
-
-                const { error } = await _supabase.from('agenda').update(dadosSupabase).eq('id', idBanco);
-                if (error) throw error;
+                result = await _db.from('agenda').insert([payload]);
             }
-
+            if (result.error) throw result.error;
+            toast(id ? 'Atualizado com sucesso' : 'Tarefa criada', 'ok');
+            await carregarDados();
             modal.hide();
-            carregarDados(); // Recarrega a tabela com as atualizações
-            
         } catch (err) {
-            console.error("Erro ao salvar:", err);
-            alert("Erro ao salvar dados no Supabase. Verifique a conexão.");
+            console.error(err);
+            toast('Erro ao salvar: ' + err.message, 'err');
+        }
+    } else {
+        // Salva localmente com ID temporário
+        salvarOffline(id, payload);
+        modal.hide();
+    }
+}
+
+function salvarOffline(id, payload) {
+    if (id) {
+        const idx = dados.findIndex(r => r.id == id);
+        if (idx > -1) dados[idx] = { ...dados[idx], ...payload };
+    } else {
+        payload.id = '_tmp_' + Date.now();
+        dados.push(normalizar(payload));
+    }
+    salvarLocal(dados);
+    _pendingSync = true;
+    renderizar();
+    toast('Salvo offline. Será sincronizado quando online.', 'ok');
+}
+
+// ─── Excluir ──────────────────────────────────────────────
+async function excluir() {
+    const id = document.getElementById('m-id').value;
+    if (!id || !confirm('Excluir este registro permanentemente?')) return;
+
+    if (isOnline) {
+        try {
+            const { error } = await _db.from('agenda').delete().eq('id', id);
+            if (error) throw error;
+            toast('Registro excluído', 'ok');
+            await carregarDados();
+            modal.hide();
+        } catch (err) { toast('Erro ao excluir', 'err'); }
+    } else {
+        dados = dados.filter(r => r.id != id);
+        salvarLocal(dados);
+        renderizar();
+        modal.hide();
+        toast('Excluído localmente', 'ok');
+    }
+}
+
+// ─── Sincronização offline → online ──────────────────────
+async function sincronizarOffline() {
+    if (!_pendingSync || !isOnline) return;
+    // Itens com ID temporário precisam de insert, os com ID real precisam de update
+    const tmpItems = dados.filter(r => String(r.id).startsWith('_tmp_'));
+    for (const item of tmpItems) {
+        const { id, ...rest } = item;
+        const { data, error } = await _db.from('agenda').insert([rest]).select();
+        if (!error && data) {
+            const idx = dados.indexOf(item);
+            dados[idx] = normalizar(data[0]);
         }
     }
+    salvarLocal(dados);
+    _pendingSync = false;
+    toast('Dados sincronizados com sucesso', 'ok');
+}
 
-    // --- 8. GERAR PDF (IDÊNTICO AO SEU ORIGINAL) ---
-    function gerarPDF() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        
-        doc.setFontSize(14);
-        doc.text("Relatório de Obras - Nuvem", 14, 15);
-        
-        // Pega as linhas visíveis da tabela, aplicando os filtros atuais
-        const linhasParaPDF = dadosPlanilha.filter(i => {
-            const txt = document.getElementById('filtroTexto').value.toLowerCase();
-            const ob = document.getElementById('filtroObra').value;
-            const st = document.getElementById('filtroStatus').value;
-            return (i.Tarefas.toLowerCase().includes(txt) || i.Obra.toLowerCase().includes(txt)) &&
-                   (ob === "" || i.Obra === ob) && (st === "" || i.Status === st);
+async function sincronizar() {
+    toast('Sincronizando...', '');
+    await verificarConexao();
+    if (isOnline) {
+        await carregarDados();
+        toast('Sincronizado!', 'ok');
+    }
+}
+
+// ─── Importar Excel ───────────────────────────────────────
+async function verificarImportacao() {
+    // Só mostra o banner se NÃO houver dados no Supabase ainda
+    if (dados.length === 0) {
+        try {
+            const res = await fetch('/api/importar-agenda');
+            if (res.ok) document.getElementById('importBanner').classList.add('show');
+        } catch {}
+    }
+}
+
+async function importarExcel() {
+    toast('Importando planilha...', '');
+    try {
+        const res  = await fetch('/api/importar-agenda');
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error);
+
+        const { error } = await _db.from('agenda').upsert(json.dados, { ignoreDuplicates: false });
+        if (error) throw error;
+
+        document.getElementById('importBanner').classList.remove('show');
+        await carregarDados();
+        toast(`${json.total} registros importados!`, 'ok');
+    } catch (err) {
+        toast('Erro na importação: ' + err.message, 'err');
+    }
+}
+
+// ─── WhatsApp ─────────────────────────────────────────────
+function enviarWhatsApp(idx) {
+    const r = dados[idx];
+    if (!r) return;
+    const hist = r.historico || [];
+    let msg = `*HISTÓRICO DE ANDAMENTO*\n\n*Obra:* ${r.obra}\n*Tarefa:* ${r.tarefas}\n${'─'.repeat(30)}\n`;
+    if (!hist.length) {
+        msg += '_Nenhum andamento registrado._';
+    } else {
+        [...hist].reverse().forEach(h => {
+            msg += `\n*Data:* ${h.data}\n*Relato:* ${h.texto}`;
+            if (h.proximaData) msg += `\n*Nova data:* ${h.proximaData}`;
+            msg += '\n';
         });
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
 
-        const bodyData = linhasParaPDF.map(i => [i.Data, i.Obra, i.Tarefas, i.Status]);
+// ─── Preview / PDF individual ─────────────────────────────
+let _previewIdx = -1;
+function abrirPreview(idx) {
+    _previewIdx = idx;
+    const r    = dados[idx];
+    const hist = r.historico || [];
+    const corpo = document.getElementById('corpoPreview');
+    if (!hist.length) {
+        corpo.innerHTML = `<p class="text-center text-muted mt-3">Nenhum andamento registrado.</p>`;
+    } else {
+        corpo.innerHTML = `
+            <h6 class="mb-3"><strong>${r.obra}</strong> — ${r.tarefas}</h6>
+            <div class="list-group">
+            ${[...hist].reverse().map(h => `
+                <div class="list-group-item">
+                    <small class="text-primary fw-bold">${h.data}</small>
+                    <p class="mb-1 mt-1">${h.texto}</p>
+                    ${h.proximaData ? `<small class="text-muted">Prorrogado para: ${h.proximaData}</small>` : ''}
+                </div>`).join('')}
+            </div>`;
+    }
+    new bootstrap.Modal(document.getElementById('modalPreview')).show();
+}
 
-        doc.autoTable({
-            head: [['Data', 'Obra', 'Tarefa', 'Status']],
-            body: bodyData,
-            startY: 25,
-            theme: 'striped',
-            headStyles: { fillColor: [0, 112, 243] }
+function gerarRelatorioIndividual() {
+    if (_previewIdx < 0) return;
+    const r    = dados[_previewIdx];
+    const hist = r.historico || [];
+    const { jsPDF } = window.jspdf;
+    const doc  = new jsPDF();
+    doc.setFont('helvetica','bold'); doc.setFontSize(14);
+    doc.text('Relatório de Acompanhamento', 14, 18);
+    doc.setFont('helvetica','normal'); doc.setFontSize(11);
+    doc.text(`Obra: ${r.obra}`, 14, 28);
+    doc.text(`Tarefa: ${r.tarefas}`, 14, 35);
+    doc.setDrawColor(200,210,220); doc.line(14, 42, 196, 42);
+    doc.autoTable({
+        startY: 48,
+        head: [['Data', 'Andamento', 'Prorrogado para']],
+        body: hist.map(h => [h.data, h.texto, h.proximaData || '—']),
+        headStyles: { fillColor: [15,25,35], textColor: [255,255,255], fontSize: 9 },
+        bodyStyles: { fontSize: 9 },
+        alternateRowStyles: { fillColor: [244,247,250] },
+        styles: { overflow: 'linebreak', cellPadding: 3 },
+        margin: { left: 14, right: 14 }
+    });
+    doc.save(`Historico_${r.obra.replace(/\s/g,'_')}.pdf`);
+}
+
+// ─── Pendências urgentes ──────────────────────────────────
+function abrirPendencias() {
+    const hoje = new Date().toISOString().split('T')[0];
+    const urg  = dados.filter(r => r.status !== 'Concluído' && r.data_tarefa <= hoje);
+    if (!urg.length) { toast('Nenhuma pendência atrasada ou para hoje!', 'ok'); return; }
+    let txt = `PENDÊNCIAS ATÉ HOJE (${hoje.split('-').reverse().join('/')}):\n\n`;
+    urg.forEach(r => { txt += `• [${r.data_tarefa.split('-').reverse().join('/')}] ${r.obra}: ${r.tarefas}\n`; });
+    window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=Pendencias_Obras&details=${encodeURIComponent(txt)}`, '_blank');
+}
+
+// ─── Filtros ──────────────────────────────────────────────
+function limparFiltros() {
+    document.getElementById('fTexto').value  = '';
+    document.getElementById('fStatus').value = 'Pendente';
+    document.getElementById('fDe').value     = '';
+    document.getElementById('fAte').value    = '';
+    renderizar();
+}
+
+// ─── PDF ──────────────────────────────────────────────────
+function gerarPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(15, 25, 35);
+    doc.text('Relatório de Obras — Agenda', 14, 15);
+    doc.setDrawColor(200, 210, 220);
+    doc.line(14, 20, 196, 20);
+    doc.autoTable({
+        startY: 25,
+        head: [['DATA', 'OBRA', 'TAREFA', 'STATUS']],
+        body: filtrados.map(r => [
+            r.data_tarefa ? r.data_tarefa.split('-').reverse().join('/') : '',
+            r.obra.toUpperCase(), r.tarefas, r.status.toUpperCase()
+        ]),
+        headStyles: { fillColor: [15, 25, 35], textColor: [255,255,255], fontSize: 9 },
+        bodyStyles: { fontSize: 9 },
+        alternateRowStyles: { fillColor: [244, 247, 250] },
+        columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 28 }, 3: { cellWidth: 24 } },
+        margin: { left: 14, right: 14 }
+    });
+    const fy = doc.lastAutoTable.finalY || 30;
+    doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(160, 160, 160);
+    doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`, 14, fy + 10);
+    doc.save(`Agenda_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`);
+}
+
+function gerarPDFDetalhado() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p','mm','a4');
+    let y = 18;
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(15,25,35);
+    doc.text('RELATÓRIO DE PENDÊNCIAS COM HISTÓRICOS', 14, y);
+    doc.setDrawColor(200,210,220); doc.line(14, y+3, 196, y+3);
+    y += 14;
+
+    if (!filtrados.length) { alert('Filtre os dados antes de gerar o relatório.'); return; }
+
+    const agrupado = filtrados.reduce((acc, r) => {
+        if (!acc[r.obra]) acc[r.obra] = [];
+        acc[r.obra].push(r);
+        return acc;
+    }, {});
+
+    for (const obra in agrupado) {
+        if (y > 240) { doc.addPage(); y = 18; }
+        doc.setFillColor(15,25,35);
+        doc.rect(14, y, 182, 10, 'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
+        doc.text(`OBRA: ${obra.toUpperCase()}`, 17, y + 6.5);
+        y += 14;
+
+        agrupado[obra].forEach(r => {
+            if (y > 250) { doc.addPage(); y = 18; }
+            doc.setFillColor(52,73,94);
+            doc.rect(14, y, 182, 7, 'F');
+            doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','bold');
+            doc.text(doc.splitTextToSize(`TAREFA: ${r.tarefas}`, 175)[0], 17, y + 4.5);
+            y += 10;
+
+            const hist = r.historico || [];
+            if (hist.length) {
+                doc.autoTable({
+                    startY: y,
+                    head: [['Data Registro','Descrição do Andamento','Nova Data']],
+                    body: hist.map(h => [h.data||'', h.texto||'', h.proximaData||'—']),
+                    theme: 'grid',
+                    headStyles: { fillColor:[240,240,240], textColor:[50,50,50], fontStyle:'bold', fontSize:8 },
+                    bodyStyles: { fontSize:8.5, textColor:[20,20,20] },
+                    styles: { overflow:'linebreak', cellPadding:3 },
+                    margin: { left:14, right:14 }
+                });
+                y = doc.lastAutoTable.finalY + 10;
+            } else {
+                doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(130,130,130);
+                doc.text('Nenhum andamento registrado.', 17, y);
+                y += 12;
+            }
         });
-
-        const finalY = doc.lastAutoTable.finalY || 30; 
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "italic");
-        doc.setTextColor(150, 150, 150); 
-        
-        const dataGeracao = `Relatório Gerado na Nuvem em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`;
-        doc.text(dataGeracao, 14, finalY + 10);
-        
-        doc.save(`Obras_Cloud_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`);
+        y += 4;
     }
 
-    // --- INICIALIZAÇÃO ---
-    window.onload = carregarDados;
+    const totalPags = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPags; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(160,160,160);
+        doc.text(`Página ${i} de ${totalPags} | ${new Date().toLocaleString('pt-BR')}`, 14, 287);
+    }
+    doc.save(`Relatorio_Detalhado_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`);
+}
 
+// ─── Desconectar ──────────────────────────────────────────
+async function desconectar() {
+    if (confirm('Encerrar o servidor local?')) {
+        try { await fetch('/api/shutdown', { method: 'POST' }); } catch {}
+        window.close();
+    }
+}
+
+// ─── Toast ────────────────────────────────────────────────
+function toast(msg, tipo) {
+    const el = document.getElementById('toast');
+    el.textContent  = msg;
+    el.className    = `toast-bar ${tipo} show`;
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 3200);
+}
 </script>
 </body>
 </html>
